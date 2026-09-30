@@ -1,0 +1,9 @@
+{
+  "name": "CodeNotchBar",
+  "description": "AI Agent status bar",
+  "uuid": "dazix.development@gmail.com",
+  "settings-schema": "org.gnome.shell.extensions.codenotchbar",
+  "shell-version": [
+    "50"
+  ]
+}

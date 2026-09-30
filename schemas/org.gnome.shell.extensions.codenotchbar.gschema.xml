@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.codenotchbar"
+          path="/org/gnome/shell/extensions/codenotchbar/">
+
+    <!-- Appearance -->
+    <key name="scale" type="d">
+      <range min="0.75" max="1.75"/>
+      <default>1.0</default>
+      <summary>UI scale</summary>
+    </key>
+    <key name="background-opacity" type="d">
+      <range min="0.2" max="1.0"/>
+      <default>0.95</default>
+      <summary>Notch background opacity</summary>
+    </key>
+    <key name="background-color" type="s">
+      <default>'#0d0d0d'</default>
+      <summary>Background colour (hex)</summary>
+    </key>
+    <key name="popout-opacity" type="d">
+      <range min="0.3" max="1.0"/>
+      <default>1.0</default>
+      <summary>Detail popout opacity</summary>
+    </key>
+    <key name="show-percent-label" type="b">
+      <default>true</default>
+      <summary>Show the percentage under each ring</summary>
+    </key>
+
+    <!-- Display -->
+    <key name="ring-window" type="s">
+      <choices>
+        <choice value="headline"/>
+        <choice value="weekly"/>
+      </choices>
+      <default>'headline'</default>
+      <summary>Which limit window fills the ring</summary>
+    </key>
+    <key name="warn-threshold" type="d">
+      <range min="0.1" max="0.99"/>
+      <default>0.7</default>
+      <summary>Used fraction where the ring turns amber</summary>
+    </key>
+    <key name="critical-threshold" type="d">
+      <range min="0.1" max="1.0"/>
+      <default>0.9</default>
+      <summary>Used fraction where the ring turns red</summary>
+    </key>
+
+    <!-- Behaviour -->
+    <key name="poll-interval" type="i">
+      <range min="15" max="600"/>
+      <default>60</default>
+      <summary>Seconds between usage refreshes</summary>
+    </key>
+    <key name="snap-threshold" type="i">
+      <range min="20" max="400"/>
+      <default>100</default>
+      <summary>Pixels from a screen edge where the notch docks</summary>
+    </key>
+    <key name="remember-position" type="b">
+      <default>true</default>
+      <summary>Restore position and docking after restart</summary>
+    </key>
+    <key name="position-x" type="i">
+      <default>-1</default>
+      <summary>Saved x position (-1 = none)</summary>
+    </key>
+    <key name="position-y" type="i">
+      <default>-1</default>
+      <summary>Saved y position (-1 = none)</summary>
+    </key>
+    <key name="dock-state" type="s">
+      <choices>
+        <choice value="floating"/>
+        <choice value="docked-left"/>
+        <choice value="docked-right"/>
+      </choices>
+      <default>'floating'</default>
+      <summary>Saved docking state</summary>
+    </key>
+
+    <!-- Providers -->
+    <key name="enabled-providers" type="as">
+      <default>[]</default>
+      <summary>Enabled agents (empty = all detected)</summary>
+    </key>
+    <key name="provider-order" type="as">
+      <default>[]</default>
+      <summary>Display order of agents (empty = default)</summary>
+    </key>
+  </schema>
+</schemalist>

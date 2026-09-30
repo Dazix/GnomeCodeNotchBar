@@ -1,0 +1,5 @@
+.idea/
+.remember/
+node_modules/
+schemas/gschemas.compiled
+*.zip
