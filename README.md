@@ -20,13 +20,13 @@ GNOME Shell extension that shows AI coding agent usage limits (session and weekl
 
 ```sh
 git clone git@github.com:Dazix/GnomeCodeNotchBar.git \
-  ~/.local/share/gnome-shell/extensions/dazix.development@gmail.com
-cd ~/.local/share/gnome-shell/extensions/dazix.development@gmail.com
+  ~/.local/share/gnome-shell/extensions/GnomeCodeNotchBar
+cd ~/.local/share/gnome-shell/extensions/GnomeCodeNotchBar
 glib-compile-schemas schemas/
-gnome-extensions enable dazix.development@gmail.com
+gnome-extensions enable GnomeCodeNotchBar
 ```
 
-On Wayland, log out and back in so the shell picks up a new extension. Settings: `gnome-extensions prefs dazix.development@gmail.com`.
+On Wayland, log out and back in so the shell picks up a new extension. Settings: `gnome-extensions prefs GnomeCodeNotchBar`.
 
 ## Development
 
