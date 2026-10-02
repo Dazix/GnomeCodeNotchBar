@@ -73,7 +73,9 @@ class DetailPopout extends St.BoxLayout {
             this._rows.add_child(this._buildRow(window));
 
         let status = '';
-        if (state.error)
+        if (state.loading && !snapshot)
+            status = 'Loading…';
+        else if (state.error)
             status = snapshot ? `${state.error} · last reading ${formatAge(snapshot.fetchedAt)}` : state.error;
         this._status.text = status;
         this._status.visible = status !== '';

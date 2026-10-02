@@ -1,6 +1,7 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -14,8 +15,8 @@ const RING_WINDOWS = [
 
 const ALL_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity', 'show-percent-label',
-    'ring-window', 'warn-threshold', 'critical-threshold', 'poll-interval', 'snap-threshold',
-    'remember-position', 'position-x', 'position-y', 'dock-state', 'enabled-providers', 'provider-order',
+    'ring-window', 'warn-threshold', 'critical-threshold', 'poll-interval', 'provider-poll-intervals',
+    'snap-threshold', 'remember-position', 'position-x', 'position-y', 'dock-state', 'enabled-providers', 'provider-order',
 ];
 
 function hexOf(rgba) {
@@ -125,11 +126,17 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
 
     _behaviourPage(settings, window) {
         const page = new Adw.PreferencesPage({title: 'Behaviour', icon_name: 'preferences-system-symbolic'});
-        const group = new Adw.PreferencesGroup({title: 'Refresh and docking'});
+        const group = new Adw.PreferencesGroup({
+            title: 'Refresh and docking',
+            description: 'A short refresh interval keeps the numbers fresher but sends more requests to ' +
+                'each agent\'s usage API. Those APIs rate limit (HTTP 429), and Claude\'s does so quickly; ' +
+                'a limited agent shows "Rate limited" and is retried later. 60 seconds or more is recommended. ' +
+                'Agents can have their own interval on the Agents page.',
+        });
         page.add(group);
 
         group.add(spinRow(settings, 'poll-interval', {
-            title: 'Refresh interval', subtitle: 'Seconds between usage checks',
+            title: 'Refresh interval', subtitle: 'Seconds between usage checks (default for all agents)',
             lower: 15, upper: 600, step: 5,
         }));
         group.add(spinRow(settings, 'snap-threshold', {
@@ -226,6 +233,57 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
         rebuild();
         // Rebuilt only on external changes to keep a switch being clicked stable.
         settings.connect('changed::provider-order', rebuild);
+
+        page.add(this._pollIntervalsGroup(settings));
         return page;
+    }
+
+    _pollIntervalsGroup(settings) {
+        const group = new Adw.PreferencesGroup({
+            title: 'Refresh interval per agent',
+            description: 'Seconds between usage checks for one agent. 0 uses the default from Behaviour. ' +
+                'Shorter intervals risk rate limiting by that agent\'s usage API; 60 seconds or more is recommended.',
+        });
+
+        const MIN = 15;
+        const read = () => settings.get_value('provider-poll-intervals').deepUnpack();
+        const rows = new Map();
+
+        for (const meta of PROVIDER_META) {
+            const row = new Adw.SpinRow({
+                title: meta.displayName,
+                adjustment: new Gtk.Adjustment({lower: 0, upper: 600, step_increment: 5, page_increment: 30}),
+            });
+            row.value = read()[meta.id] ?? 0;
+            row.connect('notify::value', () => {
+                let value = Math.round(row.value);
+                const current = read()[meta.id] ?? 0;
+                // 1..14 is below the minimum: jump to the minimum going up, to "default" going down.
+                if (value > 0 && value < MIN)
+                    value = value > current ? MIN : 0;
+                if (value !== row.value)
+                    row.value = value;
+                if (value === current)
+                    return;
+                const next = {...read()};
+                if (value === 0)
+                    delete next[meta.id];
+                else
+                    next[meta.id] = value;
+                settings.set_value('provider-poll-intervals', new GLib.Variant('a{si}', next));
+            });
+            rows.set(meta.id, row);
+            group.add(row);
+        }
+
+        // Keep the rows in step with outside changes, e.g. "Reset all settings".
+        settings.connect('changed::provider-poll-intervals', () => {
+            const saved = read();
+            for (const [id, row] of rows) {
+                if (row.value !== (saved[id] ?? 0))
+                    row.value = saved[id] ?? 0;
+            }
+        });
+        return group;
     }
 }

@@ -7,9 +7,15 @@
  */
 export function metrics(scale) {
     const px = value => Math.round(value * scale);
+    const floatPadV = px(16);
+    // Radius of the concave arc joining a docked notch to the screen edge.
+    const edgeCurve = px(20);
     return {
         widgetWidth: px(64),
-        containerPadV: px(64),
+        // A free floating pill only needs its rounded ends.
+        floatPadV,
+        // A docked notch also needs room for the edge arc above and below the body.
+        containerPadV: floatPadV + edgeCurve,
         containerPadH: px(10),
         itemPadBottom: px(16),
         ringSize: px(44),
@@ -19,9 +25,7 @@ export function metrics(scale) {
         labelMarginTop: px(4),
         // notch shape
         cornerRadius: px(32),
-        // Vertical run of the docked taper; equals containerPadV so the
-        // curve fits exactly in the padding above and below the icons.
-        edgeCurve: px(64),
+        edgeCurve,
         minSize: px(48),
         // popout
         popoutWidth: px(250),

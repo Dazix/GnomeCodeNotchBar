@@ -11,7 +11,7 @@ import {FloatingWidget} from './ui/floatingWidget.js';
 const LIVE_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity',
     'show-percent-label', 'ring-window', 'warn-threshold', 'critical-threshold',
-    'poll-interval', 'snap-threshold', 'remember-position',
+    'poll-interval', 'provider-poll-intervals', 'snap-threshold', 'remember-position',
     'enabled-providers', 'provider-order',
 ];
 
