@@ -19,72 +19,79 @@ function bezier(p0, c1, c2, p3) {
     return points;
 }
 
-/**
- * The docked taper: two tangent quarter-ellipses, a concave one leaving the
- * screen edge and a convex one rounding into the wall of the data block.
- * Both ends are vertical, and the join in the middle is horizontal, so the
- * outline is tangent-continuous everywhere (a classic inverted-corner flare).
- * With edgeCurve equal to the widget width the arcs are true circles.
- */
-function taper(p0, p3) {
-    const sx = Math.sign(p3[0] - p0[0]);
-    const sy = Math.sign(p3[1] - p0[1]);
-    const rx = Math.abs(p3[0] - p0[0]) / 2;
-    const ry = Math.abs(p3[1] - p0[1]) / 2;
-    const half = STEPS / 2;
+/** A straight (or degenerate) run, sampled to the same point count. */
+const line = (p0, p3) => bezier(p0, p0, p3, p3);
+
+/** Straight run of n points, excluding the start point. */
+function run(p0, p3, n) {
     const points = [];
-    // Concave quarter: centre beside the start point, on the block side.
-    for (let i = 1; i <= half; i++) {
-        const a = (i / half) * Math.PI / 2;
-        points.push([p0[0] + sx * rx - sx * rx * Math.cos(a), p0[1] + sy * ry * Math.sin(a)]);
-    }
-    // Convex quarter: from the horizontal midpoint down into the block wall.
-    const midX = p0[0] + sx * rx;
-    const midY = p0[1] + sy * ry;
-    for (let i = 1; i <= half; i++) {
-        const a = (i / half) * Math.PI / 2;
-        points.push([midX + sx * rx * Math.sin(a), midY + sy * ry * (1 - Math.cos(a))]);
+    for (let i = 1; i <= n; i++)
+        points.push([p0[0] + (p3[0] - p0[0]) * i / n, p0[1] + (p3[1] - p0[1]) * i / n]);
+    return points;
+}
+
+/** Circular arc of n points around (cx, cy) from angle a0 to a1, excluding the start point. */
+function arc(cx, cy, r, a0, a1, n) {
+    const points = [];
+    for (let i = 1; i <= n; i++) {
+        const a = a0 + (a1 - a0) * i / n;
+        points.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
     }
     return points;
 }
 
-/** A straight (or degenerate) run, sampled to the same point count. */
-const line = (p0, p3) => bezier(p0, p0, p3, p3);
+/** Points of a segment given to the flat run; the rest go to the arc. */
+const RUN_STEPS = 8;
+const ARC_STEPS = STEPS - RUN_STEPS;
 
 /**
  * Outline of each notch shape in a w x h box as a fixed-size point list
  * (start point + SEGMENTS * STEPS), so shapes can be blended point by point:
  * a free floating pill, and the pill docked to the right / left screen edge.
+ *
+ * A docked notch keeps the pill's rounded corners (radius R) on the side away
+ * from the screen. Only the side at the screen edge changes: the pill top and
+ * bottom run flat to the edge and join the wall with a concave circular arc of
+ * radius C. The body sits C below / above the box edge, which the arc fills.
  */
 function shapes(w, h, {cornerRadius: R, edgeCurve: C}) {
     const Rk = R * KAPPA;
+    const top = C;
+    const bottom = h - C;
+    const mid = w / 2;
     return {
         floating: [
-            [w / 2, 0],
-            ...bezier([w / 2, 0], [w / 2 + Rk, 0], [w, R - Rk], [w, R]),
+            [mid, 0],
+            ...bezier([mid, 0], [mid + Rk, 0], [w, R - Rk], [w, R]),
             ...line([w, R], [w, h - R]),
-            ...bezier([w, h - R], [w, h - R + Rk], [w / 2 + Rk, h], [w / 2, h]),
-            ...bezier([w / 2, h], [w / 2 - Rk, h], [0, h - R + Rk], [0, h - R]),
+            ...bezier([w, h - R], [w, h - R + Rk], [mid + Rk, h], [mid, h]),
+            ...bezier([mid, h], [mid - Rk, h], [0, h - R + Rk], [0, h - R]),
             ...line([0, h - R], [0, R]),
-            ...bezier([0, R], [0, R - Rk], [w / 2 - Rk, 0], [w / 2, 0]),
+            ...bezier([0, R], [0, R - Rk], [mid - Rk, 0], [mid, 0]),
         ],
+        // Screen edge on the right.
         right: [
-            [w, 0],
-            ...line([w, 0], [w, 0]),
+            [mid, top],
+            ...run([mid, top], [w - C, top], RUN_STEPS),
+            ...arc(w - C, 0, C, Math.PI / 2, 0, ARC_STEPS),
             ...line([w, 0], [w, h]),
-            ...line([w, h], [w, h]),
-            ...taper([w, h], [0, h - C]),
-            ...line([0, h - C], [0, C]),
-            ...taper([0, C], [w, 0]),
+            ...arc(w - C, h, C, 0, -Math.PI / 2, ARC_STEPS),
+            ...run([w - C, bottom], [mid, bottom], RUN_STEPS),
+            ...bezier([mid, bottom], [mid - Rk, bottom], [0, bottom - R + Rk], [0, bottom - R]),
+            ...line([0, bottom - R], [0, top + R]),
+            ...bezier([0, top + R], [0, top + R - Rk], [mid - Rk, top], [mid, top]),
         ],
+        // Screen edge on the left.
         left: [
-            [0, 0],
-            ...taper([0, 0], [w, C]),
-            ...line([w, C], [w, h - C]),
-            ...taper([w, h - C], [0, h]),
-            ...line([0, h], [0, h]),
+            [mid, top],
+            ...bezier([mid, top], [mid + Rk, top], [w, top + R - Rk], [w, top + R]),
+            ...line([w, top + R], [w, bottom - R]),
+            ...bezier([w, bottom - R], [w, bottom - R + Rk], [mid + Rk, bottom], [mid, bottom]),
+            ...run([mid, bottom], [C, bottom], RUN_STEPS),
+            ...arc(C, h, C, -Math.PI / 2, -Math.PI, ARC_STEPS),
             ...line([0, h], [0, 0]),
-            ...line([0, 0], [0, 0]),
+            ...arc(C, 0, C, Math.PI, Math.PI / 2, ARC_STEPS),
+            ...run([C, top], [mid, top], RUN_STEPS),
         ],
     };
 }
