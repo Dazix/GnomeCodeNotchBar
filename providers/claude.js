@@ -59,8 +59,9 @@ export function parseUsage(payload) {
     const windows = [];
 
     for (const limit of payload?.limits ?? []) {
+        // An idle window (0 %, nothing started) has no reset time: keep it.
         const resetsAt = toDate(limit.resets_at);
-        if (!resetsAt || typeof limit.percent !== 'number')
+        if (typeof limit.percent !== 'number')
             continue;
         const model = limit.scope?.model?.display_name?.trim();
         windows.push({
@@ -73,8 +74,7 @@ export function parseUsage(payload) {
 
     const merge = (window, id) => {
         const resetsAt = toDate(window?.resets_at);
-        if (!resetsAt || typeof window.utilization !== 'number' ||
-            windows.some(w => w.id === id))
+        if (typeof window?.utilization !== 'number' || windows.some(w => w.id === id))
             return;
         windows.push({id, label: labelForKind(id), usedFraction: window.utilization / 100, resetsAt});
     };
@@ -164,6 +164,7 @@ export class ClaudeProvider extends Provider {
             }
             return new UsageError(ErrorKind.BAD_RESPONSE, `Claude answered ${error.status}`);
         }
+        console.error(`CodeNotchBar claude: request failed: ${error?.message ?? error}`);
         return new UsageError(ErrorKind.BAD_RESPONSE, 'Claude unreachable');
     }
 }

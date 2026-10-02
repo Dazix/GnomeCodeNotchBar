@@ -55,7 +55,11 @@ class SidebarItem extends St.Button {
         this.state = state;
         const {warnThreshold, criticalThreshold, ringWindow} = this._config;
         const window = state.snapshot ? windowForRing(state.snapshot, ringWindow) : null;
-        if (window) {
+        const loading = Boolean(state.loading) && !window;
+        this._ring.setLoading(loading);
+        if (loading) {
+            this._label.text = '…';
+        } else if (window) {
             const color = colorForFraction(window.usedFraction, warnThreshold, criticalThreshold);
             this._ring.setProgress(window.usedFraction, color.rgb);
             this._label.text = `${percent(window.usedFraction)}%`;

@@ -2,10 +2,11 @@ import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 
 import {HttpClient} from '../lib/http.js';
-import {createProviders, detectAvailable} from '../providers/registry.js';
+import {createProviders} from '../providers/registry.js';
 import {ErrorKind} from '../providers/provider.js';
 
 const STALE_MS = 15 * 60 * 1000;
+const LOADING_TIMEOUT_S = 20;
 
 /**
  * @typedef {object} ProviderState
@@ -13,6 +14,7 @@ const STALE_MS = 15 * 60 * 1000;
  * @property {import('./types.js').Snapshot|null} snapshot  last good reading
  * @property {string|null} error   user-facing status when the last fetch failed
  * @property {boolean} stale       reading older than STALE_MS or last fetch failed
+ * @property {boolean} loading     first fetch not finished yet
  */
 
 /**
@@ -31,7 +33,9 @@ export const UsageStore = GObject.registerClass({
         this._providers = createProviders();
         /** All detected providers, enabled or not. @type {Map<string, ProviderState>} */
         this._states = new Map();
-        this._timerId = 0;
+        /** @type {Map<string, number>} provider id to GLib source id */
+        this._timerIds = new Map();
+        this._loadingTimeoutId = 0;
         this._started = false;
         this._destroyed = false;
     }
@@ -58,8 +62,9 @@ export const UsageStore = GObject.registerClass({
         this._config = config;
         if (!this._started)
             return;
-        if (config.pollInterval !== previous.pollInterval)
-            this._startTimer();
+        if (config.pollInterval !== previous.pollInterval ||
+            JSON.stringify(config.providerPollIntervals) !== JSON.stringify(previous.providerPollIntervals))
+            this._startTimers();
         const enabledNow = JSON.stringify(config.enabledProviders);
         if (enabledNow !== JSON.stringify(previous.enabledProviders)) {
             // A provider that was just switched on has no reading yet.
@@ -69,27 +74,73 @@ export const UsageStore = GObject.registerClass({
     }
 
     async start() {
-        const available = await detectAvailable(this._providers);
-        if (this._destroyed)
-            return;
-        for (const provider of available)
-            this._states.set(provider.id, {provider, snapshot: null, error: null, stale: false});
         this._started = true;
 
-        this.emit('changed');
-        await this.refresh();
+        // A fetch that hangs must not spin forever.
+        this._loadingTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, LOADING_TIMEOUT_S, () => {
+            this._loadingTimeoutId = 0;
+            for (const state of this._states.values()) {
+                if (state.loading) {
+                    state.loading = false;
+                    state.error = 'No response yet';
+                    state.stale = true;
+                }
+            }
+            this.emit('changed');
+            return GLib.SOURCE_REMOVE;
+        });
+
+        // Agents are independent: a slow detection (e.g. `gh auth token`) must
+        // not hold back the others.
+        await Promise.all(this._providers.map(provider => this._startProvider(provider)));
         if (this._destroyed)
             return;
-        this._startTimer();
+        this._startTimers();
     }
 
-    _startTimer() {
-        if (this._timerId)
-            GLib.source_remove(this._timerId);
-        this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._config.pollInterval, () => {
-            this.refresh().catch(e => console.error(`CodeNotchBar refresh: ${e.message}`));
-            return GLib.SOURCE_CONTINUE;
-        });
+    /**
+     * Show one agent as soon as it is found on this machine (credentials or
+     * binary present), loading until its first reading lands.
+     */
+    async _startProvider(provider) {
+        const found = await provider.isAvailable().catch(() => false);
+        if (!found || this._destroyed)
+            return;
+        const state = {provider, snapshot: null, error: null, stale: false, loading: true};
+        this._states.set(provider.id, state);
+        this.emit('changed');
+        await this._refreshOne(state);
+        if (!this._destroyed)
+            this.emit('changed');
+    }
+
+    /** Seconds between checks for one provider: its own setting, else the global one. */
+    _intervalFor(id) {
+        const own = this._config.providerPollIntervals?.[id];
+        return Number.isFinite(own) && own > 0 ? own : this._config.pollInterval;
+    }
+
+    /** One timer per provider, so each agent can be polled at its own pace. */
+    _startTimers() {
+        this._stopTimers();
+        for (const state of this._states.values()) {
+            const id = state.provider.id;
+            this._timerIds.set(id, GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._intervalFor(id), () => {
+                // Disabled providers are not polled: no requests for agents the user hid.
+                if (this.states.includes(state)) {
+                    this._refreshOne(state)
+                        .then(() => this._destroyed || this.emit('changed'))
+                        .catch(e => console.error(`CodeNotchBar refresh: ${e.message}`));
+                }
+                return GLib.SOURCE_CONTINUE;
+            }));
+        }
+    }
+
+    _stopTimers() {
+        for (const timerId of this._timerIds.values())
+            GLib.source_remove(timerId);
+        this._timerIds.clear();
     }
 
     async refresh() {
@@ -115,15 +166,17 @@ export const UsageStore = GObject.registerClass({
             if (e.kind === ErrorKind.NEEDS_AUTH)
                 state.snapshot = null;
         }
+        state.loading = false;
         if (state.snapshot && Date.now() - state.snapshot.fetchedAt.getTime() > STALE_MS)
             state.stale = true;
     }
 
     destroy() {
         this._destroyed = true;
-        if (this._timerId) {
-            GLib.source_remove(this._timerId);
-            this._timerId = 0;
+        this._stopTimers();
+        if (this._loadingTimeoutId) {
+            GLib.source_remove(this._loadingTimeoutId);
+            this._loadingTimeoutId = 0;
         }
         for (const state of this._states.values())
             state.provider.destroy();

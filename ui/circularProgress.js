@@ -1,6 +1,7 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
 import Cairo from 'cairo';
 
 import {loadIcon, setIconContrast} from './icons.js';
@@ -15,6 +16,10 @@ class CircularProgressWithIcon extends St.Widget {
         this._color = {r: 0.5, g: 0.5, b: 0.5};
         this._metrics = metricsFor(config.scale);
         this._track = {r: 0.2, g: 0.2, b: 0.2};
+        this._spin = {r: 0.6, g: 0.6, b: 0.6};
+        this._loading = false;
+        this._angle = -Math.PI / 2;
+        this._spinTimer = 0;
 
         this._area = new St.DrawingArea({
             x_expand: true, y_expand: true,
@@ -44,6 +49,8 @@ class CircularProgressWithIcon extends St.Widget {
         const bg = config.backgroundColor;
         const mix = c => c + (fg - c) * 0.2;
         this._track = {r: mix(bg.r), g: mix(bg.g), b: mix(bg.b)};
+        const strong = c => c + (fg - c) * 0.6;
+        this._spin = {r: strong(bg.r), g: strong(bg.g), b: strong(bg.b)};
         this.set_size(metrics.ringSize, metrics.ringSize);
         this._icon.set_style(`width: ${metrics.iconSize}px; height: ${metrics.iconSize}px;`);
         setIconContrast(this._icon, config.palette.dark);
@@ -60,6 +67,40 @@ class CircularProgressWithIcon extends St.Widget {
         this._area.queue_repaint();
     }
 
+    /**
+     * Spin a short arc around the ring while the first reading is on its way.
+     *
+     * @param {boolean} on
+     */
+    setLoading(on) {
+        if (on === this._loading)
+            return;
+        this._loading = on;
+        this._icon.opacity = on ? 140 : 255;
+        if (on) {
+            this._spinTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
+                this._angle = (this._angle + 0.2) % (2 * Math.PI);
+                this._area.queue_repaint();
+                return GLib.SOURCE_CONTINUE;
+            });
+        } else {
+            this._stopSpin();
+        }
+        this._area.queue_repaint();
+    }
+
+    _stopSpin() {
+        if (this._spinTimer) {
+            GLib.source_remove(this._spinTimer);
+            this._spinTimer = 0;
+        }
+    }
+
+    vfunc_destroy() {
+        this._stopSpin();
+        super.vfunc_destroy();
+    }
+
     _onRepaint(area) {
         const cr = area.get_context();
         try {
@@ -74,7 +115,13 @@ class CircularProgressWithIcon extends St.Widget {
             cr.arc(cx, cy, radius, 0, 2 * Math.PI);
             cr.stroke();
 
-            if (this._fraction > 0) {
+            if (this._loading) {
+                const s = this._spin;
+                cr.setSourceRGBA(s.r, s.g, s.b, 1.0);
+                cr.setLineCap(Cairo.LineCap.ROUND);
+                cr.arc(cx, cy, radius, this._angle, this._angle + Math.PI / 2);
+                cr.stroke();
+            } else if (this._fraction > 0) {
                 const start = -Math.PI / 2;
                 cr.setSourceRGBA(this._color.r, this._color.g, this._color.b, 1.0);
                 cr.setLineCap(Cairo.LineCap.ROUND);
