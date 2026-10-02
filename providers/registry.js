@@ -1,3 +1,4 @@
+import {AntigravityProvider} from './antigravity.js';
 import {ClaudeProvider} from './claude.js';
 import {CodexProvider} from './codex.js';
 import {CopilotProvider} from './copilot.js';
@@ -10,6 +11,7 @@ export function createProviders() {
         new CodexProvider(),
         new CopilotProvider(),
         new CursorProvider(),
+        new AntigravityProvider(),
     ];
 }
 

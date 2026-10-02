@@ -4,7 +4,7 @@ GNOME Shell extension that shows AI coding agent usage limits (session and weekl
 
 ## Features
 
-- Live usage limits for **Claude**, **GitHub Copilot**, **Codex** and **Cursor**. Agents that are not installed are hidden.
+- Live usage limits for **Claude**, **GitHub Copilot**, **Codex**, **Cursor** and **Antigravity** (read from `agy --print /usage`, so `agy` must be signed in). Agents that are not installed are hidden.
 - Several display styles: notch, circular progress, sidebar, detail popout and floating widget.
 - Ring colour by usage (green / amber / red), configurable thresholds.
 - Text colours adapt to the chosen background (WCAG AA contrast).
