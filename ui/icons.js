@@ -18,16 +18,19 @@ export function loadIcon(extDir, iconFile) {
 
 const EFFECT_NAME = 'icon-contrast';
 
+/** Full-colour logos that are shown as-is on any background. */
+const COLOR_ICONS = new Set(['antigravity.svg']);
+
 /**
  * The icon artwork is white. On a light background darken it to black so it
- * stays visible; on a dark one leave it alone.
+ * stays visible; on a dark one leave it alone. Full-colour icons are left alone.
  *
  * @param {St.Icon} icon
  * @param {boolean} dark true when the background is light (text is black)
  */
 export function setIconContrast(icon, dark) {
     icon.remove_effect_by_name(EFFECT_NAME);
-    if (!dark)
+    if (!dark || COLOR_ICONS.has(icon.gicon?.file?.get_basename()))
         return;
     const effect = new Clutter.BrightnessContrastEffect();
     effect.set_brightness(-1);
