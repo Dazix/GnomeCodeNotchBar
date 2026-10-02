@@ -7,6 +7,9 @@ import Cairo from 'cairo';
 import {loadIcon, setIconContrast} from './icons.js';
 import {metrics as metricsFor} from './metrics.js';
 
+const ANIMATION_MS = 500;
+const easeOutCubic = t => 1 - Math.pow(1 - Math.min(1, t), 3);
+
 /** Ring showing a used fraction, with the agent's icon in the middle. */
 export const CircularProgressWithIcon = GObject.registerClass(
 class CircularProgressWithIcon extends St.Widget {
@@ -35,6 +38,7 @@ class CircularProgressWithIcon extends St.Widget {
             x_expand: true, y_expand: true,
         });
         this.add_child(this._icon);
+        this.connect('destroy', () => this._stopAnimation());
         this.applyMetrics(this._metrics, config);
     }
 
@@ -62,9 +66,42 @@ class CircularProgressWithIcon extends St.Widget {
      * @param {{r:number,g:number,b:number}} color
      */
     setProgress(fraction, color) {
-        this._fraction = fraction === null ? 0 : Math.max(0, Math.min(1, fraction));
-        this._color = color;
-        this._area.queue_repaint();
+        const target = fraction === null ? 0 : Math.max(0, Math.min(1, fraction));
+        const sameColor = (a, b) => a.r === b.r && a.g === b.g && a.b === b.b;
+        if (target === this._targetFraction && sameColor(color, this._targetColor))
+            return;
+        this._targetFraction = target;
+        this._targetColor = color;
+
+        this._stopAnimation();
+        const fromFraction = this._fraction;
+        const fromColor = this._color;
+
+        this._timeline = new Clutter.Timeline({actor: this, duration: ANIMATION_MS});
+        this._timeline.connect('new-frame', (tl, ms) => {
+            const t = easeOutCubic(ms / ANIMATION_MS);
+            this._fraction = fromFraction + (target - fromFraction) * t;
+            this._color = {
+                r: fromColor.r + (color.r - fromColor.r) * t,
+                g: fromColor.g + (color.g - fromColor.g) * t,
+                b: fromColor.b + (color.b - fromColor.b) * t,
+            };
+            this._area.queue_repaint();
+        });
+        this._timeline.connect('completed', () => {
+            this._fraction = target;
+            this._color = color;
+            this._area.queue_repaint();
+            this._stopAnimation();
+        });
+        this._timeline.start();
+    }
+
+    _stopAnimation() {
+        if (!this._timeline)
+            return;
+        this._timeline.stop();
+        this._timeline = null;
     }
 
     /**

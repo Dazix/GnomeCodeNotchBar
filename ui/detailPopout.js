@@ -18,6 +18,8 @@ class DetailPopout extends St.BoxLayout {
         this._extDir = extDir;
         this._config = config;
         this._m = metricsFor(config.scale);
+        /** Last shown percentage per provider/window, so bars grow from it. */
+        this._lastPct = new Map();
 
         this._header = new St.BoxLayout();
         this._titleIcon = new St.Icon();
@@ -70,7 +72,7 @@ class DetailPopout extends St.BoxLayout {
 
         this._rows.destroy_all_children();
         for (const window of snapshot?.windows ?? [])
-            this._rows.add_child(this._buildRow(window));
+            this._rows.add_child(this._buildRow(provider.id, window));
 
         let status = '';
         if (state.loading && !snapshot)
@@ -87,7 +89,7 @@ class DetailPopout extends St.BoxLayout {
         this.show();
     }
 
-    _buildRow(window) {
+    _buildRow(providerId, window) {
         const m = this._m;
         const {warnThreshold, criticalThreshold, palette} = this._config;
         const gap = Math.round(m.popoutPad * 0.4);
@@ -111,8 +113,17 @@ class DetailPopout extends St.BoxLayout {
         const fill = new St.BoxLayout();
         const color = colorForFraction(window.usedFraction, warnThreshold, criticalThreshold).css;
         fill.set_style(`height: ${m.barHeight}px; border-radius: ${m.barHeight / 2}px; ` +
-            `background-color: ${color}; width: ${Math.floor(pct / 100 * m.barWidth)}px;`);
+            `background-color: ${color};`);
+        const targetWidth = Math.floor(pct / 100 * m.barWidth);
+        const key = `${providerId}/${window.label}`;
+        const previous = this._lastPct.get(key) ?? 0;
+        this._lastPct.set(key, pct);
+        fill.set_width(Math.floor(previous / 100 * m.barWidth));
         bg.add_child(fill);
+        if (previous !== pct)
+            fill.ease({width: targetWidth, duration: 500, mode: Clutter.AnimationMode.EASE_OUT_CUBIC});
+        else
+            fill.set_width(targetWidth);
         row.add_child(bg);
 
         const pctLabel = new St.Label({text: `${pct}% Used`});
