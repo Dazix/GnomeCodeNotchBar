@@ -250,8 +250,16 @@ class FloatingWidget extends St.Widget {
         return Clutter.EVENT_STOP;
     }
 
+    /** Monitor under the notch's center, so it snaps to the screen it was dragged onto. */
+    _monitorUnderWidget() {
+        const {monitors, primaryMonitor} = Main.layoutManager;
+        const cx = this.x + this.width / 2;
+        const cy = this._ly;
+        return monitors.find(m => cx >= m.x && cx < m.x + m.width && cy >= m.y && cy < m.y + m.height) ?? primaryMonitor;
+    }
+
     _snapToEdge(duration) {
-        const monitor = Main.layoutManager.primaryMonitor;
+        const monitor = this._monitorUnderWidget();
         const threshold = this._config.snapThreshold;
         let snapX = this.x;
         const nearRight = this.x + this.width > monitor.x + monitor.width - threshold;
