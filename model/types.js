@@ -14,6 +14,7 @@
  * @property {string} headlineId    window shown in the ring
  * @property {string|null} plan
  * @property {Date} fetchedAt
+ * @property {string} [source]    where the reading came from, shown in debug mode
  */
 
 /**

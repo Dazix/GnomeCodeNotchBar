@@ -6,6 +6,7 @@ import {exists, readJson} from '../lib/files.js';
 import {ErrorKind, Provider, UsageError} from './provider.js';
 
 const ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
+const SOURCE = `API ${ENDPOINT}`;
 
 const KIND_LABELS = {
     session: 'Current session',
@@ -165,6 +166,7 @@ export class ClaudeProvider extends Provider {
             headlineId: hook.windows.some(w => w.id === 'session') ? 'session' : hook.windows[0].id,
             plan: oauth?.subscriptionType ? capitalize(oauth.subscriptionType) : null,
             fetchedAt: hook.fetchedAt,
+            source: `Claude Code mod (${HOOK_FILE})`,
         };
     }
 
@@ -200,6 +202,7 @@ export class ClaudeProvider extends Provider {
             headlineId: windows.some(w => w.id === 'session') ? 'session' : windows[0].id,
             plan: oauth.subscriptionType ? capitalize(oauth.subscriptionType) : null,
             fetchedAt: new Date(),
+            source: SOURCE,
         };
     }
 

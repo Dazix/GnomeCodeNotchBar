@@ -37,6 +37,10 @@ class DetailPopout extends St.BoxLayout {
         this._status.clutter_text.line_wrap = true;
         this.add_child(this._status);
 
+        this._source = new St.Label();
+        this._source.clutter_text.line_wrap = true;
+        this.add_child(this._source);
+
         this.applyConfig(config);
     }
 
@@ -56,6 +60,8 @@ class DetailPopout extends St.BoxLayout {
             `font-weight: bold; font-size: ${m.titleFontPt}pt; color: ${config.palette.primary};`);
         this._planLabel.set_style(`color: ${config.palette.secondary}; font-size: ${m.textFontPt}pt;`);
         this._status.set_style(`color: ${config.palette.warning}; font-size: ${m.textFontPt}pt;`);
+        this._source.set_style(
+            `color: ${config.palette.tertiary}; font-size: ${m.textFontPt}pt; margin-top: ${m.popoutPad / 2}px;`);
         this.hide();
     }
 
@@ -81,6 +87,10 @@ class DetailPopout extends St.BoxLayout {
             status = snapshot ? `${state.error} · last reading ${formatAge(snapshot.fetchedAt)}` : state.error;
         this._status.text = status;
         this._status.visible = status !== '';
+
+        const showSource = this._config.debugMode && snapshot?.source;
+        this._source.text = showSource ? `Source: ${snapshot.source} · read ${formatAge(snapshot.fetchedAt)}` : '';
+        this._source.visible = Boolean(showSource);
 
         const [sourceX, sourceY] = sourceActor.get_transformed_position();
         const gap = this._m.popoutPad - 1;
