@@ -89,7 +89,10 @@ class DetailPopout extends St.BoxLayout {
         this._status.visible = status !== '';
 
         const showSource = this._config.debugMode && snapshot?.source;
-        this._source.text = showSource ? `Source: ${snapshot.source} · read ${formatAge(snapshot.fetchedAt)}` : '';
+        const checked = state.checkedAt ? ` · checked ${formatAge(state.checkedAt)}` : '';
+        this._source.text = showSource
+            ? `Source: ${snapshot.source} · captured ${formatAge(snapshot.fetchedAt)}${checked}`
+            : '';
         this._source.visible = Boolean(showSource);
 
         const [sourceX, sourceY] = sourceActor.get_transformed_position();

@@ -57,6 +57,18 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
         });
     }
 
+    // The bundled monochrome logos are white for the dark notch; darken them on a light window.
+    _providerIcon(iconFile) {
+        const file = this.dir.get_child('icons').get_child(iconFile);
+        if (Adw.StyleManager.get_default().dark)
+            return new Gio.FileIcon({file});
+        const [ok, bytes] = file.load_contents(null);
+        if (!ok)
+            return new Gio.FileIcon({file});
+        const svg = new TextDecoder().decode(bytes).replace(/fill="#fff(?:fff)?"/g, 'fill="#2e3436"');
+        return new Gio.BytesIcon({bytes: new GLib.Bytes(new TextEncoder().encode(svg))});
+    }
+
     _appearancePage(settings) {
         const page = new Adw.PreferencesPage({title: 'Appearance', icon_name: 'applications-graphics-symbolic'});
         const group = new Adw.PreferencesGroup({title: 'Notch'});
@@ -211,10 +223,7 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
             order.forEach((id, index) => {
                 const meta = PROVIDER_META.find(p => p.id === id);
                 const row = new Adw.ActionRow({title: meta.displayName});
-                row.add_prefix(new Gtk.Image({
-                    gicon: new Gio.FileIcon({file: this.dir.get_child('icons').get_child(meta.iconFile)}),
-                    pixel_size: 20,
-                }));
+                row.add_prefix(new Gtk.Image({gicon: this._providerIcon(meta.iconFile), pixel_size: 20}));
 
                 const up = new Gtk.Button({icon_name: 'go-up-symbolic', valign: Gtk.Align.CENTER,
                     css_classes: ['flat'], sensitive: index > 0});
