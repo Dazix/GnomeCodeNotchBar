@@ -8,6 +8,7 @@ import {jwtClaims} from '../lib/jwt.js';
 import {ErrorKind, Provider, UsageError} from './provider.js';
 
 const ENDPOINT = 'https://cursor.com/api/usage-summary';
+const SOURCE = `API ${ENDPOINT}`;
 const STORE_PATH = '~/.config/Cursor/User/globalStorage/state.vscdb';
 const AGENT_CONFIG_PATH = '~/.cursor/cli-config.json';
 
@@ -144,6 +145,7 @@ export class CursorProvider extends Provider {
             headlineId: headlineOf(windows),
             plan: plan ? String(plan).replace(/^\w/, c => c.toUpperCase()) : null,
             fetchedAt: new Date(),
+            source: SOURCE,
         };
     }
 

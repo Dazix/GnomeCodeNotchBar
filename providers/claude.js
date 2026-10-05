@@ -6,6 +6,7 @@ import {exists, readJson} from '../lib/files.js';
 import {ErrorKind, Provider, UsageError} from './provider.js';
 
 const ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
+const SOURCE = `API ${ENDPOINT}`;
 
 const KIND_LABELS = {
     session: 'Current session',
@@ -85,6 +86,37 @@ export function parseUsage(payload) {
         windowRank(a.id) - windowRank(b.id) || a.id.localeCompare(b.id));
 }
 
+const HOOK_FILE = '~/.cache/code-notch-bar/claude-rate-limits.json';
+const HOOK_KINDS = {five_hour: 'session', seven_day: 'weekly_all'};
+const HOOK_FRESH_MS = 2 * 60 * 1000;
+const HOOK_USABLE_MS = 30 * 60 * 1000;
+
+/**
+ * Turn the file written by the `notch-bar-usage` Claude Code mod (the rate
+ * limits of Claude's own API responses) into limit windows.
+ *
+ * @param {object} payload
+ * @returns {{windows: import('../model/types.js').LimitWindow[], fetchedAt: Date}|null}
+ */
+export function parseHookFile(payload) {
+    const fetchedAt = toDate(payload?.fetchedAt);
+    if (!fetchedAt || !Array.isArray(payload.windows))
+        return null;
+    const windows = [];
+    for (const w of payload.windows) {
+        const id = HOOK_KINDS[w?.kind];
+        if (!id || typeof w.percentUsed !== 'number')
+            continue;
+        windows.push({id, label: labelForKind(id), usedFraction: w.percentUsed / 100, resetsAt: toDate(w.resetsAt)});
+    }
+    if (windows.length === 0)
+        return null;
+    return {
+        windows: windows.sort((a, b) => windowRank(a.id) - windowRank(b.id)),
+        fetchedAt,
+    };
+}
+
 export class ClaudeProvider extends Provider {
     constructor() {
         super({
@@ -101,7 +133,44 @@ export class ClaudeProvider extends Provider {
         return exists(credentialsPath());
     }
 
+    /**
+     * A reading from Claude Code itself is free of the usage endpoint's rate
+     * limit: prefer a fresh one, and fall back to a recent one when the
+     * endpoint fails.
+     */
     async fetchSnapshot(http) {
+        const hook = await this._readHookFile();
+        const age = hook ? Date.now() - hook.fetchedAt.getTime() : Infinity;
+        if (hook && age < HOOK_FRESH_MS)
+            return this._hookSnapshot(hook);
+
+        try {
+            return await this._fetchFromApi(http);
+        } catch (e) {
+            if (hook && age < HOOK_USABLE_MS)
+                return this._hookSnapshot(hook);
+            throw e;
+        }
+    }
+
+    async _readHookFile() {
+        return parseHookFile(await readJson(HOOK_FILE));
+    }
+
+    async _hookSnapshot(hook) {
+        const oauth = await this._loadCredentials().catch(() => null);
+        return {
+            id: this.id,
+            displayName: this.displayName,
+            windows: hook.windows,
+            headlineId: hook.windows.some(w => w.id === 'session') ? 'session' : hook.windows[0].id,
+            plan: oauth?.subscriptionType ? capitalize(oauth.subscriptionType) : null,
+            fetchedAt: hook.fetchedAt,
+            source: `Claude Code mod (${HOOK_FILE})`,
+        };
+    }
+
+    async _fetchFromApi(http) {
         const now = Date.now();
         if (now < this._retryNoEarlierThan) {
             throw new UsageError(ErrorKind.RATE_LIMITED, 'Rate limited',
@@ -133,6 +202,7 @@ export class ClaudeProvider extends Provider {
             headlineId: windows.some(w => w.id === 'session') ? 'session' : windows[0].id,
             plan: oauth.subscriptionType ? capitalize(oauth.subscriptionType) : null,
             fetchedAt: new Date(),
+            source: SOURCE,
         };
     }
 

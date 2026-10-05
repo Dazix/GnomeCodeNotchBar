@@ -7,6 +7,7 @@ import {jwtClaims} from '../lib/jwt.js';
 import {ErrorKind, Provider, UsageError} from './provider.js';
 
 const ENDPOINT = 'https://chatgpt.com/backend-api/wham/usage';
+const SOURCE = `API ${ENDPOINT}`;
 const WINDOWS = [
     ['primary', 'primary_window', 'Current session'],
     ['secondary', 'secondary_window', 'Weekly'],
@@ -112,6 +113,7 @@ export class CodexProvider extends Provider {
             headlineId: windows[0].id,
             plan: plan ? String(plan).replace(/^\w/, c => c.toUpperCase()) : null,
             fetchedAt: new Date(),
+            source: SOURCE,
         };
     }
 

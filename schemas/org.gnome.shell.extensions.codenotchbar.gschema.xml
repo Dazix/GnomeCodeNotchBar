@@ -67,6 +67,10 @@
       <default>true</default>
       <summary>Restore position and docking after restart</summary>
     </key>
+    <key name="debug-mode" type="b">
+      <default>false</default>
+      <summary>Show where each limit reading came from in the popup</summary>
+    </key>
     <key name="position-x" type="i">
       <default>-1</default>
       <summary>Saved x position (-1 = none)</summary>

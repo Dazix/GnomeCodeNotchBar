@@ -7,6 +7,7 @@ import {run} from '../lib/subprocess.js';
 import {ErrorKind, Provider, UsageError} from './provider.js';
 
 const ENDPOINT = 'https://api.github.com/copilot_internal/user';
+const SOURCE = `API ${ENDPOINT}`;
 const HOSTS_PATH = '~/.config/gh/hosts.yml';
 const ORDER = ['premium_interactions', 'chat', 'completions'];
 const LABELS = {
@@ -144,6 +145,7 @@ export class CopilotProvider extends Provider {
                 ? 'premium_interactions' : windows[0].id,
             plan: plan ? String(plan).replace(/^\w/, c => c.toUpperCase()) : null,
             fetchedAt: new Date(),
+            source: SOURCE,
         };
     }
 

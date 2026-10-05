@@ -8,6 +8,7 @@ import {ErrorKind, Provider, UsageError} from './provider.js';
 const FALLBACK_BIN = '~/.local/bin/agy';
 const STATE_DIR = 'codenotchbar/agy-work';
 const PRINT_TIMEOUT = '30s';
+const SOURCE = 'CLI agy --print /usage';
 const PROCESS_TIMEOUT_SECONDS = 70;
 /** Each read starts the CLI, which may call the network: never more often than this. */
 const MIN_INTERVAL_MS = 60 * 1000;
@@ -139,6 +140,7 @@ export class AntigravityProvider extends Provider {
             headlineId: headlineOf(windows),
             plan: null,
             fetchedAt: new Date(),
+            source: SOURCE,
         };
         this._lastAt = Date.now();
         return this._last;

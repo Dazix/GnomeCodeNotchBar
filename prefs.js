@@ -16,7 +16,7 @@ const RING_WINDOWS = [
 const ALL_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity', 'show-percent-label',
     'ring-window', 'warn-threshold', 'critical-threshold', 'poll-interval', 'provider-poll-intervals',
-    'snap-threshold', 'remember-position', 'position-x', 'position-y', 'dock-state', 'enabled-providers', 'provider-order',
+    'snap-threshold', 'remember-position', 'debug-mode', 'position-x', 'position-y', 'dock-state', 'enabled-providers', 'provider-order',
 ];
 
 function hexOf(rgba) {
@@ -145,6 +145,9 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
         }));
         group.add(switchRow(settings, 'remember-position', {
             title: 'Remember position', subtitle: 'Restore position and docking after restart',
+        }));
+        group.add(switchRow(settings, 'debug-mode', {
+            title: 'Debug mode', subtitle: 'Show the data source of each limit reading in the popup',
         }));
 
         const reset = new Adw.PreferencesGroup();

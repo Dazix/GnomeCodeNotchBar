@@ -12,7 +12,7 @@ const LIVE_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity',
     'show-percent-label', 'ring-window', 'warn-threshold', 'critical-threshold',
     'poll-interval', 'provider-poll-intervals', 'snap-threshold', 'remember-position',
-    'enabled-providers', 'provider-order',
+    'debug-mode', 'enabled-providers', 'provider-order',
 ];
 
 export default class CodeNotchExtension extends Extension {
