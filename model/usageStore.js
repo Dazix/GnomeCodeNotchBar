@@ -15,6 +15,7 @@ const LOADING_TIMEOUT_S = 20;
  * @property {string|null} error   user-facing status when the last fetch failed
  * @property {boolean} stale       reading older than STALE_MS or last fetch failed
  * @property {boolean} loading     first fetch not finished yet
+ * @property {Date|null} checkedAt  when the provider was last polled, successfully or not
  */
 
 /**
@@ -106,7 +107,7 @@ export const UsageStore = GObject.registerClass({
         const found = await provider.isAvailable().catch(() => false);
         if (!found || this._destroyed)
             return;
-        const state = {provider, snapshot: null, error: null, stale: false, loading: true};
+        const state = {provider, snapshot: null, error: null, stale: false, loading: true, checkedAt: null};
         this._states.set(provider.id, state);
         this.emit('changed');
         await this._refreshOne(state);
@@ -167,6 +168,7 @@ export const UsageStore = GObject.registerClass({
                 state.snapshot = null;
         }
         state.loading = false;
+        state.checkedAt = new Date();
         if (state.snapshot && Date.now() - state.snapshot.fetchedAt.getTime() > STALE_MS)
             state.stale = true;
     }
