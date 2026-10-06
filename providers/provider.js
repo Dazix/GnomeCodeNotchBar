@@ -61,5 +61,15 @@ export class Provider {
         throw new Error('not implemented');
     }
 
+    /**
+     * Files whose change means a new reading is ready. The store refreshes
+     * this provider as soon as one is written; polling stays as the fallback.
+     *
+     * @returns {string[]}
+     */
+    watchedFiles() {
+        return [];
+    }
+
     destroy() {}
 }
