@@ -188,14 +188,11 @@ class CircularProgressWithIcon extends St.Widget {
             }
 
             if (this._hasWeekly && !this._loading) {
-                // Thinner and fainter ring just inside the main one, weekly limit.
+                // Thinner and fainter ring touching the main one, weekly limit; filled part only.
                 const inner = Math.max(1.5, line / 2);
-                const gap = Math.max(1.5, line * 0.4);
+                const gap = Math.max(0.5, line * 0.1);
                 const innerRadius = radius - line / 2 - gap - inner / 2;
                 cr.setLineWidth(inner);
-                cr.setSourceRGBA(this._track.r, this._track.g, this._track.b, 1.0);
-                cr.arc(cx, cy, innerRadius, 0, 2 * Math.PI);
-                cr.stroke();
                 if (this._weeklyFraction > 0) {
                     const start = -Math.PI / 2;
                     const c = this._weeklyColor;
