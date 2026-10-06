@@ -10,7 +10,7 @@ import {FloatingWidget} from './ui/floatingWidget.js';
 /** Settings keys that change what is on screen or how often it is polled. */
 const LIVE_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity',
-    'show-percent-label', 'ring-window', 'warn-threshold', 'critical-threshold',
+    'show-percent-label', 'ring-window', 'show-weekly-ring', 'warn-threshold', 'critical-threshold',
     'poll-interval', 'provider-poll-intervals', 'snap-threshold', 'remember-position',
     'debug-mode', 'enabled-providers', 'provider-order',
 ];

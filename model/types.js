@@ -41,14 +41,22 @@ export function colorForFraction(fraction, warn = 0.7, critical = 0.9) {
  * @returns {LimitWindow|null}
  */
 export function windowForRing(snapshot, mode) {
-    if (mode === 'weekly') {
-        const weekly = snapshot.windows.find(w => w.id === 'weekly_all') ??
-            snapshot.windows.find(w => w.id === 'secondary') ??
-            snapshot.windows.find(w => w.id.includes('week'));
-        if (weekly)
-            return weekly;
-    }
+    if (mode === 'weekly')
+        return weeklyWindow(snapshot) ?? headlineWindow(snapshot);
     return headlineWindow(snapshot);
+}
+
+/**
+ * The weekly limit window, if the provider has one.
+ *
+ * @param {Snapshot} snapshot
+ * @returns {LimitWindow|null}
+ */
+export function weeklyWindow(snapshot) {
+    return snapshot.windows.find(w => w.id === 'weekly_all') ??
+        snapshot.windows.find(w => w.id === 'secondary') ??
+        snapshot.windows.find(w => w.id.includes('week')) ??
+        null;
 }
 
 /**

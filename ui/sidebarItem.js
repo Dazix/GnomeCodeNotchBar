@@ -2,7 +2,7 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
-import {colorForFraction, percent, windowForRing} from '../model/types.js';
+import {colorForFraction, percent, weeklyWindow, windowForRing} from '../model/types.js';
 import {CircularProgressWithIcon} from './circularProgress.js';
 import {metrics as metricsFor} from './metrics.js';
 
@@ -61,7 +61,15 @@ class SidebarItem extends St.Button {
             this._label.text = '…';
         } else if (window) {
             const color = colorForFraction(window.usedFraction, warnThreshold, criticalThreshold);
-            this._ring.setProgress(window.usedFraction, color.rgb);
+            // Inner ring only when it adds information: not when the main ring is already weekly.
+            const weekly = this._config.showWeeklyRing ? weeklyWindow(state.snapshot) : null;
+            const inner = weekly && weekly !== window
+                ? {
+                    fraction: weekly.usedFraction,
+                    color: colorForFraction(weekly.usedFraction, warnThreshold, criticalThreshold).rgb,
+                }
+                : null;
+            this._ring.setProgress(window.usedFraction, color.rgb, inner);
             this._label.text = `${percent(window.usedFraction)}%`;
         } else {
             this._ring.setProgress(null, NEUTRAL);
