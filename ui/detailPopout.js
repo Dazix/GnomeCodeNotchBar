@@ -2,6 +2,8 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 import {formatAge, formatReset} from '../lib/time.js';
 import {colorForFraction, percent} from '../model/types.js';
 import {loadIcon, setIconContrast} from './icons.js';
@@ -97,8 +99,24 @@ class DetailPopout extends St.BoxLayout {
 
         const [sourceX, sourceY] = sourceActor.get_transformed_position();
         const gap = this._m.popoutPad - 1;
-        const targetX = dockedRight ? sourceX - this.width - gap : sourceX + sourceActor.width + gap;
-        this.set_position(targetX, sourceY - this.height / 2 + sourceActor.height / 2);
+        const sourceCx = sourceX + sourceActor.width / 2;
+        const sourceCy = sourceY + sourceActor.height / 2;
+        const {monitors, primaryMonitor} = Main.layoutManager;
+        const monitor = monitors.find(m =>
+            sourceCx >= m.x && sourceCx < m.x + m.width && sourceCy >= m.y && sourceCy < m.y + m.height) ?? primaryMonitor;
+
+        // Prefer the docked side, flip when it would leave the widget's monitor,
+        // then clamp so the popout never straddles two screens.
+        const leftX = sourceX - this.width - gap;
+        const rightX = sourceX + sourceActor.width + gap;
+        const fits = x => x >= monitor.x && x + this.width <= monitor.x + monitor.width;
+        let targetX = dockedRight ? leftX : rightX;
+        if (!fits(targetX) && fits(dockedRight ? rightX : leftX))
+            targetX = dockedRight ? rightX : leftX;
+        targetX = Math.max(monitor.x, Math.min(targetX, monitor.x + monitor.width - this.width));
+        const targetY = Math.max(monitor.y,
+            Math.min(sourceCy - this.height / 2, monitor.y + monitor.height - this.height));
+        this.set_position(Math.round(targetX), Math.round(targetY));
         this.show();
     }
 
