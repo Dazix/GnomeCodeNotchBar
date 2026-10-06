@@ -15,7 +15,7 @@ const RING_WINDOWS = [
 
 const ALL_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity', 'show-percent-label',
-    'ring-window', 'warn-threshold', 'critical-threshold', 'poll-interval', 'provider-poll-intervals',
+    'ring-window', 'show-weekly-ring', 'warn-threshold', 'critical-threshold', 'poll-interval', 'provider-poll-intervals',
     'snap-threshold', 'remember-position', 'debug-mode', 'position-x', 'position-y', 'dock-state', 'enabled-providers', 'provider-order',
 ];
 
@@ -119,6 +119,11 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
             settings.set_string('ring-window', RING_WINDOWS[combo.selected][0]));
         settings.connect('changed::ring-window', sync);
         group.add(combo);
+
+        group.add(switchRow(settings, 'show-weekly-ring', {
+            title: 'Show weekly limit as inner ring',
+            subtitle: 'Thin ring inside the main one, for agents with a weekly limit',
+        }));
 
         const colours = new Adw.PreferencesGroup({
             title: 'Colours',

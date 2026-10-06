@@ -20,6 +20,9 @@ class CircularProgressWithIcon extends St.Widget {
         this._metrics = metricsFor(config.scale);
         this._track = {r: 0.2, g: 0.2, b: 0.2};
         this._spin = {r: 0.6, g: 0.6, b: 0.6};
+        this._weeklyFraction = 0;
+        this._weeklyColor = {r: 0.5, g: 0.5, b: 0.5};
+        this._hasWeekly = false;
         this._loading = false;
         this._angle = -Math.PI / 2;
         this._spinTimer = 0;
@@ -64,33 +67,51 @@ class CircularProgressWithIcon extends St.Widget {
     /**
      * @param {number|null} fraction 0..1, null when there is no reading
      * @param {{r:number,g:number,b:number}} color
+     * @param {{fraction: number, color: {r:number,g:number,b:number}}|null} [weekly]
+     *     drawn as a thinner ring inside the main one; null hides it
      */
-    setProgress(fraction, color) {
-        const target = fraction === null ? 0 : Math.max(0, Math.min(1, fraction));
+    setProgress(fraction, color, weekly = null) {
+        const clamp = f => Math.max(0, Math.min(1, f));
+        const target = fraction === null ? 0 : clamp(fraction);
+        const weeklyTarget = weekly ? clamp(weekly.fraction) : 0;
+        const weeklyColor = weekly?.color ?? this._weeklyColor;
         const sameColor = (a, b) => a.r === b.r && a.g === b.g && a.b === b.b;
-        if (target === this._targetFraction && sameColor(color, this._targetColor))
+        const hasWeekly = weekly !== null;
+        if (target === this._targetFraction && sameColor(color, this._targetColor) &&
+            weeklyTarget === this._targetWeekly && sameColor(weeklyColor, this._targetWeeklyColor) &&
+            hasWeekly === this._hasWeekly)
             return;
         this._targetFraction = target;
         this._targetColor = color;
+        this._targetWeekly = weeklyTarget;
+        this._targetWeeklyColor = weeklyColor;
+        this._hasWeekly = hasWeekly;
 
         this._stopAnimation();
         const fromFraction = this._fraction;
         const fromColor = this._color;
+        const fromWeekly = this._weeklyFraction;
+        const fromWeeklyColor = this._weeklyColor;
+        const mix = (a, b, t) => ({
+            r: a.r + (b.r - a.r) * t,
+            g: a.g + (b.g - a.g) * t,
+            b: a.b + (b.b - a.b) * t,
+        });
 
         this._timeline = new Clutter.Timeline({actor: this, duration: ANIMATION_MS});
         this._timeline.connect('new-frame', (tl, ms) => {
             const t = easeOutCubic(ms / ANIMATION_MS);
             this._fraction = fromFraction + (target - fromFraction) * t;
-            this._color = {
-                r: fromColor.r + (color.r - fromColor.r) * t,
-                g: fromColor.g + (color.g - fromColor.g) * t,
-                b: fromColor.b + (color.b - fromColor.b) * t,
-            };
+            this._color = mix(fromColor, color, t);
+            this._weeklyFraction = fromWeekly + (weeklyTarget - fromWeekly) * t;
+            this._weeklyColor = mix(fromWeeklyColor, weeklyColor, t);
             this._area.queue_repaint();
         });
         this._timeline.connect('completed', () => {
             this._fraction = target;
             this._color = color;
+            this._weeklyFraction = weeklyTarget;
+            this._weeklyColor = weeklyColor;
             this._area.queue_repaint();
             this._stopAnimation();
         });
@@ -164,6 +185,25 @@ class CircularProgressWithIcon extends St.Widget {
                 cr.setLineCap(Cairo.LineCap.ROUND);
                 cr.arc(cx, cy, radius, start, start + this._fraction * 2 * Math.PI);
                 cr.stroke();
+            }
+
+            if (this._hasWeekly && !this._loading) {
+                // Thinner and fainter ring just inside the main one, weekly limit.
+                const inner = Math.max(1.5, line / 2);
+                const gap = Math.max(1.5, line * 0.4);
+                const innerRadius = radius - line / 2 - gap - inner / 2;
+                cr.setLineWidth(inner);
+                cr.setSourceRGBA(this._track.r, this._track.g, this._track.b, 1.0);
+                cr.arc(cx, cy, innerRadius, 0, 2 * Math.PI);
+                cr.stroke();
+                if (this._weeklyFraction > 0) {
+                    const start = -Math.PI / 2;
+                    const c = this._weeklyColor;
+                    cr.setSourceRGBA(c.r, c.g, c.b, 0.65);
+                    cr.setLineCap(Cairo.LineCap.ROUND);
+                    cr.arc(cx, cy, innerRadius, start, start + this._weeklyFraction * 2 * Math.PI);
+                    cr.stroke();
+                }
             }
         } finally {
             cr.$dispose();

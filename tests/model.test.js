@@ -1,5 +1,5 @@
 import {ErrorKind, Provider, UsageError} from '../providers/provider.js';
-import {colorForFraction, headlineWindow, percent, windowForRing} from '../model/types.js';
+import {colorForFraction, headlineWindow, percent, weeklyWindow, windowForRing} from '../model/types.js';
 import {assertEqual, assertTrue, test} from './harness.js';
 
 const win = (id, usedFraction = 0) => ({id, label: id, usedFraction, resetsAt: null});
@@ -38,6 +38,11 @@ test('windowForRing: weekly mode prefers weekly_all, then secondary, then *week*
 
 test('windowForRing: weekly mode falls back to headline', () => {
     assertEqual(windowForRing(snap([win('session')]), 'weekly').id, 'session');
+});
+
+test('weeklyWindow: finds the weekly window or null', () => {
+    assertEqual(weeklyWindow(snap([win('session'), win('weekly_all')])).id, 'weekly_all');
+    assertEqual(weeklyWindow(snap([win('session')])), null);
 });
 
 test('UsageError: carries kind, message and retryAfter', () => {
