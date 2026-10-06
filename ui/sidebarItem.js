@@ -68,5 +68,9 @@ class SidebarItem extends St.Button {
             this._label.text = '–';
         }
         this.opacity = state.stale ? 128 : 255;
+
+        // The popout is built once on hover: redraw it so it follows the ring.
+        if (this.hover && this._popout.visible && !this._widget.isDragging)
+            this._popout.showFor(this, state, this._widget.isDockedRight);
     }
 });

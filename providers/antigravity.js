@@ -2,7 +2,7 @@ import GLib from 'gi://GLib';
 
 import {backoffSeconds} from '../lib/backoff.js';
 import {exists, expandHome} from '../lib/files.js';
-import {run} from '../lib/subprocess.js';
+import {runUntilMatch} from '../lib/subprocess.js';
 import {ErrorKind, Provider, UsageError} from './provider.js';
 
 const FALLBACK_BIN = '~/.local/bin/agy';
@@ -13,6 +13,33 @@ const PROCESS_TIMEOUT_SECONDS = 70;
 /** Each read starts the CLI, which may call the network: never more often than this. */
 const MIN_INTERVAL_MS = 60 * 1000;
 const MAX_OUTPUT = 64 * 1024;
+/** Printed by the CLI when it has no stored login and starts an OAuth flow. */
+const AUTH_REQUIRED = /Authentication required/i;
+/** While signed out, do not start the CLI again more often than this. */
+const AUTH_RECHECK_MS = 5 * 60 * 1000;
+
+const STUB_DIR = 'codenotchbar/agy-no-browser';
+
+/**
+ * Without a stored login the CLI starts an OAuth flow and runs `xdg-open`,
+ * which on GNOME reaches the running browser over D-Bus whatever DISPLAY says.
+ * A background poll must never do that, so `xdg-open` is shadowed by a no-op.
+ *
+ * @returns {Object<string, string>} environment for the child process
+ */
+function noBrowserEnv() {
+    const dir = GLib.build_filenamev([GLib.get_user_cache_dir(), STUB_DIR]);
+    const stub = GLib.build_filenamev([dir, 'xdg-open']);
+    if (!exists(stub)) {
+        GLib.mkdir_with_parents(dir, 0o700);
+        GLib.file_set_contents(stub, '#!/bin/sh\nexit 0\n');
+        GLib.chmod(stub, 0o700);
+    }
+    return {
+        PATH: `${dir}:${GLib.getenv('PATH') ?? '/usr/bin:/bin'}`,
+        BROWSER: stub,
+    };
+}
 
 const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g;
 const ROW = /^(.+?)\s+Limit\s+Remaining\s+(-?[\d.]+|NaN)%\s+(\S+)$/;
@@ -83,6 +110,7 @@ export class AntigravityProvider extends Provider {
         this._inFlight = null;
         this._consecutiveFailures = 0;
         this._retryNoEarlierThan = 0;
+        this._needsAuthUntil = 0;
     }
 
     /** `~/.local/bin` is often missing from the shell's PATH. */
@@ -98,6 +126,8 @@ export class AntigravityProvider extends Provider {
         const now = Date.now();
         if (this._last && now - this._lastAt < MIN_INTERVAL_MS)
             return this._last;
+        if (now < this._needsAuthUntil)
+            throw new UsageError(ErrorKind.NEEDS_AUTH, this.signIn);
         if (now < this._retryNoEarlierThan) {
             throw new UsageError(ErrorKind.RATE_LIMITED, 'Antigravity did not answer',
                 (this._retryNoEarlierThan - now) / 1000);
@@ -116,8 +146,14 @@ export class AntigravityProvider extends Provider {
         // An empty directory of our own: the CLI files a project under its cwd.
         const dir = GLib.build_filenamev([GLib.get_user_cache_dir(), STATE_DIR]);
         GLib.mkdir_with_parents(dir, 0o700);
-        const out = await run([bin, '--sandbox', '--print-timeout', PRINT_TIMEOUT, '--print', '/usage'],
-            PROCESS_TIMEOUT_SECONDS, dir);
+        const result = await runUntilMatch([bin, '--sandbox', '--print-timeout', PRINT_TIMEOUT, '--print', '/usage'],
+            PROCESS_TIMEOUT_SECONDS, dir, noBrowserEnv(), AUTH_REQUIRED);
+        if (result?.stopped) {
+            this._needsAuthUntil = Date.now() + AUTH_RECHECK_MS;
+            throw new UsageError(ErrorKind.NEEDS_AUTH, this.signIn);
+        }
+        this._needsAuthUntil = 0;
+        const out = result?.output ?? null;
         if (out === null || out.length > MAX_OUTPUT) {
             const wait = backoffSeconds(this._consecutiveFailures++);
             this._retryNoEarlierThan = Date.now() + wait * 1000;
