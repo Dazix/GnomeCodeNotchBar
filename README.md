@@ -10,6 +10,7 @@ GNOME Shell extension that shows AI coding agent usage limits (session and weekl
 - Text colours adapt to the chosen background (WCAG AA contrast).
 - Read-only: credentials written by each agent's own tooling are only read, never refreshed or modified.
 - Rate-limit aware polling with exponential backoff.
+- Claude limits update instantly when the Claude Code mod writes a new reading (file monitor); polling stays as the fallback.
 
 ## Requirements
 

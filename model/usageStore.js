@@ -3,6 +3,7 @@ import GObject from 'gi://GObject';
 
 import {HttpClient} from '../lib/http.js';
 import {createProviders} from '../providers/registry.js';
+import {watchFile} from '../lib/watch.js';
 import {ErrorKind} from '../providers/provider.js';
 
 const STALE_MS = 15 * 60 * 1000;
@@ -37,6 +38,8 @@ export const UsageStore = GObject.registerClass({
         /** @type {Map<string, number>} provider id to GLib source id */
         this._timerIds = new Map();
         this._loadingTimeoutId = 0;
+        /** @type {Map<string, {cancel: () => void}[]>} provider id to its file watchers */
+        this._watchers = new Map();
         this._started = false;
         this._destroyed = false;
     }
@@ -109,10 +112,29 @@ export const UsageStore = GObject.registerClass({
             return;
         const state = {provider, snapshot: null, error: null, stale: false, loading: true, checkedAt: null};
         this._states.set(provider.id, state);
+        this._watch(state);
         this.emit('changed');
         await this._refreshOne(state);
         if (!this._destroyed)
             this.emit('changed');
+    }
+
+    /**
+     * Refresh a provider the moment it writes a new reading; the poll timer
+     * stays as the fallback for when nothing is written.
+     */
+    _watch(state) {
+        const watchers = state.provider.watchedFiles()
+            .map(path => watchFile(path, () => {
+                // Disabled providers are not refreshed, same as on the timer.
+                if (this._destroyed || !this.states.includes(state))
+                    return;
+                this._refreshOne(state)
+                    .then(() => this._destroyed || this.emit('changed'))
+                    .catch(e => console.error(`CodeNotchBar refresh: ${e.message}`));
+            }))
+            .filter(Boolean);
+        this._watchers.set(state.provider.id, watchers);
     }
 
     /** Seconds between checks for one provider: its own setting, else the global one. */
@@ -176,6 +198,9 @@ export const UsageStore = GObject.registerClass({
     destroy() {
         this._destroyed = true;
         this._stopTimers();
+        for (const watchers of this._watchers.values())
+            watchers.forEach(w => w.cancel());
+        this._watchers.clear();
         if (this._loadingTimeoutId) {
             GLib.source_remove(this._loadingTimeoutId);
             this._loadingTimeoutId = 0;

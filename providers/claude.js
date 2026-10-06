@@ -153,6 +153,10 @@ export class ClaudeProvider extends Provider {
         }
     }
 
+    watchedFiles() {
+        return [HOOK_FILE];
+    }
+
     async _readHookFile() {
         return parseHookFile(await readJson(HOOK_FILE));
     }
