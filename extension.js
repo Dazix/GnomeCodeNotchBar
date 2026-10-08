@@ -24,11 +24,15 @@ export default class CodeNotchExtension extends Extension {
         St.ThemeContext.get_for_stage(global.stage).get_theme().load_stylesheet(this._stylesheet);
 
         this._popout = new DetailPopout(this.dir, config);
-        Main.layoutManager.addChrome(this._popout);
+        Main.layoutManager.addChrome(this._popout, {trackFullscreen: false});
 
         this._widget = new FloatingWidget(this._popout, this.dir, config, this._settings,
             () => this.openPreferences());
-        Main.layoutManager.addChrome(this._widget);
+        Main.layoutManager.addChrome(this._widget, {trackFullscreen: false});
+
+        // Other chrome or a fullscreen window can end up above the notch: lift it back.
+        this._restackedId = global.display.connect('restacked', () => this._raiseChrome());
+        this._raiseChrome();
 
         this._store = new UsageStore(config);
         this._changedId = this._store.connect('changed',
@@ -40,6 +44,15 @@ export default class CodeNotchExtension extends Extension {
         this._store.start().catch(e => console.error(`CodeNotchBar: ${e.message}`));
     }
 
+    _raiseChrome() {
+        // Above the other chrome, but just below the modal dialogs (system dialogs stay on top).
+        const {uiGroup, modalDialogGroup} = Main.layoutManager;
+        for (const actor of [this._popout, this._widget]) {
+            if (actor?.get_parent() === uiGroup && modalDialogGroup?.get_parent() === uiGroup)
+                uiGroup.set_child_below_sibling(actor, modalDialogGroup);
+        }
+    }
+
     _applyConfig() {
         const config = readConfig(this._settings);
         this._popout.applyConfig(config);
@@ -48,6 +61,10 @@ export default class CodeNotchExtension extends Extension {
     }
 
     disable() {
+        if (this._restackedId) {
+            global.display.disconnect(this._restackedId);
+            this._restackedId = null;
+        }
         for (const id of this._settingsIds ?? [])
             this._settings.disconnect(id);
         this._settingsIds = null;
