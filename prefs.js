@@ -15,7 +15,7 @@ const RING_WINDOWS = [
 
 const ALL_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity', 'show-percent-label',
-    'ring-window', 'show-weekly-ring', 'warn-threshold', 'critical-threshold', 'poll-interval', 'provider-poll-intervals',
+    'compact-mode', 'ring-window', 'show-weekly-ring', 'warn-threshold', 'critical-threshold', 'poll-interval', 'provider-poll-intervals',
     'snap-threshold', 'remember-position', 'debug-mode', 'position-x', 'position-y', 'dock-state', 'enabled-providers', 'provider-order',
 ];
 
@@ -99,6 +99,10 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
         group.add(colorRow);
 
         group.add(switchRow(settings, 'show-percent-label', {title: 'Show percentage under the ring'}));
+        group.add(switchRow(settings, 'compact-mode', {
+            title: 'Compact mode',
+            subtitle: 'Narrow notch with a small icon and a coloured percentage, no rings',
+        }));
         return page;
     }
 

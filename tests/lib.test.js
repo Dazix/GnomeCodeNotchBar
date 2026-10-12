@@ -3,6 +3,7 @@ import GLib from 'gi://GLib';
 import {backoffSeconds} from '../lib/backoff.js';
 import {contrastRatio, css, luminance, textPalette} from '../lib/contrast.js';
 import {jwtClaims} from '../lib/jwt.js';
+import {metrics} from '../ui/metrics.js';
 import {formatAge, formatReset} from '../lib/time.js';
 import {assertEqual, assertTrue, test} from './harness.js';
 
@@ -62,4 +63,14 @@ test('time: formatAge', () => {
     assertEqual(formatAge(at(-10), NOW), 'just now');
     assertEqual(formatAge(at(-300), NOW), '5 min ago');
     assertEqual(formatAge(at(-7300), NOW), '2h ago');
+});
+
+// metrics
+test('metrics: compact notch is narrower and still paintable', () => {
+    for (const scale of [0.5, 1, 2]) {
+        const compact = metrics(scale, true);
+        assertTrue(compact.widgetWidth < metrics(scale).widgetWidth);
+        assertTrue(compact.widgetWidth >= compact.minSize, 'notch must not fall below minSize');
+        assertEqual(compact.ringSize, compact.iconSize);
+    }
 });

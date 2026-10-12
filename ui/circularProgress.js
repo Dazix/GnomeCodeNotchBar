@@ -17,7 +17,8 @@ class CircularProgressWithIcon extends St.Widget {
         super._init({layout_manager: new Clutter.BinLayout()});
         this._fraction = 0;
         this._color = {r: 0.5, g: 0.5, b: 0.5};
-        this._metrics = metricsFor(config.scale);
+        this._metrics = metricsFor(config.scale, config.compactMode);
+        this._compact = false;
         this._track = {r: 0.2, g: 0.2, b: 0.2};
         this._spin = {r: 0.6, g: 0.6, b: 0.6};
         this._weeklyFraction = 0;
@@ -51,6 +52,10 @@ class CircularProgressWithIcon extends St.Widget {
      */
     applyMetrics(metrics, config) {
         this._metrics = metrics;
+        this._compact = config.compactMode;
+        this._area.visible = !this._compact;
+        if (this._compact)
+            this._stopSpin();
         // Empty ring track: a faint tint of the text colour over the background.
         const fg = config.palette.dark ? 0 : 1;
         const bg = config.backgroundColor;
@@ -135,7 +140,8 @@ class CircularProgressWithIcon extends St.Widget {
             return;
         this._loading = on;
         this._icon.opacity = on ? 140 : 255;
-        if (on) {
+        // The compact layout has no ring to spin; the dimmed icon is the cue.
+        if (on && !this._compact) {
             this._spinTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
                 this._angle = (this._angle + 0.2) % (2 * Math.PI);
                 this._area.queue_repaint();

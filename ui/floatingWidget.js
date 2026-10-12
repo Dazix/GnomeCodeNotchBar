@@ -43,7 +43,7 @@ class FloatingWidget extends St.Widget {
         this._config = config;
         this._settings = settings;
         this._onOpenPrefs = onOpenPrefs;
-        this._metrics = metricsFor(config.scale);
+        this._metrics = metricsFor(config.scale, config.compactMode);
         /** @type {Map<string, SidebarItem>} */
         this._items = new Map();
         this.isDragging = false;
@@ -114,9 +114,10 @@ class FloatingWidget extends St.Widget {
      * @param {import('../lib/config.js').Config} config
      */
     applyConfig(config) {
-        const scaleChanged = config.scale !== this._config.scale;
+        const scaleChanged = config.scale !== this._config.scale ||
+            config.compactMode !== this._config.compactMode;
         this._config = config;
-        this._metrics = metricsFor(config.scale);
+        this._metrics = metricsFor(config.scale, config.compactMode);
         this._applyMetrics();
         for (const item of this._items.values())
             item.applyConfig(config);

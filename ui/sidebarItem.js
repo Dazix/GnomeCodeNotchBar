@@ -40,14 +40,21 @@ class SidebarItem extends St.Button {
     /** @param {import('../lib/config.js').Config} config */
     applyConfig(config) {
         this._config = config;
-        const m = metricsFor(config.scale);
-        this._box.set_style(`padding-bottom: ${m.itemPadBottom}px;`);
-        this._label.set_style(`color: ${config.palette.primary}; font-weight: bold; text-align: center; ` +
-            `font-size: ${m.labelFontPt}pt; margin-top: ${m.labelMarginTop}px;`);
-        this._label.visible = config.showPercentLabel;
-        this._ring.applyMetrics(m, config);
+        this._metrics = metricsFor(config.scale, config.compactMode);
+        this._box.set_style(`padding-bottom: ${this._metrics.itemPadBottom}px;`);
+        // Without a ring the percentage is the only reading, so it is always shown.
+        this._label.visible = config.showPercentLabel || config.compactMode;
+        this._ring.applyMetrics(this._metrics, config);
+        this._styleLabel(config.palette.primary);
         if (this.state)
             this.update(this.state);
+    }
+
+    /** @param {string} color CSS colour of the percentage */
+    _styleLabel(color) {
+        const m = this._metrics;
+        this._label.set_style(`color: ${color}; font-weight: bold; text-align: center; ` +
+            `font-size: ${m.labelFontPt}pt; margin-top: ${m.labelMarginTop}px;`);
     }
 
     /** @param {import('../model/usageStore.js').ProviderState} state */
@@ -62,7 +69,9 @@ class SidebarItem extends St.Button {
         } else if (window) {
             const color = colorForFraction(window.usedFraction, warnThreshold, criticalThreshold);
             // Inner ring only when it adds information: not when the main ring is already weekly.
-            const weekly = this._config.showWeeklyRing ? weeklyWindow(state.snapshot) : null;
+            const weekly = this._config.showWeeklyRing && !this._config.compactMode
+                ? weeklyWindow(state.snapshot)
+                : null;
             const inner = weekly && weekly !== window
                 ? {
                     fraction: weekly.usedFraction,
@@ -71,9 +80,12 @@ class SidebarItem extends St.Button {
                 : null;
             this._ring.setProgress(window.usedFraction, color.rgb, inner);
             this._label.text = `${percent(window.usedFraction)}%`;
+            // The ring colour is gone in compact mode: carry the thresholds on the text.
+            this._styleLabel(this._config.compactMode ? color.css : this._config.palette.primary);
         } else {
             this._ring.setProgress(null, NEUTRAL);
             this._label.text = '–';
+            this._styleLabel(this._config.palette.primary);
         }
         this.opacity = state.stale ? 128 : 255;
 
