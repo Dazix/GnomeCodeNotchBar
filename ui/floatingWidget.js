@@ -99,6 +99,13 @@ class FloatingWidget extends St.Widget {
 
         this._restorePosition();
         this._applyMetrics();
+
+        this._monitorsChangedId = Main.layoutManager.connect('monitors-changed',
+            () => this._rescueFromMissingMonitor());
+        this.connect('destroy', () => {
+            Main.layoutManager.disconnect(this._monitorsChangedId);
+        });
+        this._rescueFromMissingMonitor();
     }
 
     /**
@@ -256,6 +263,25 @@ class FloatingWidget extends St.Widget {
         const cx = this.x + this.width / 2;
         const cy = this._ly;
         return monitors.find(m => cx >= m.x && cx < m.x + m.width && cy >= m.y && cy < m.y + m.height) ?? primaryMonitor;
+    }
+
+    /** After a monitor was unplugged, pull a notch left outside every screen onto the primary one. */
+    _rescueFromMissingMonitor() {
+        const {monitors, primaryMonitor} = Main.layoutManager;
+        if (!primaryMonitor || this.isDragging)
+            return;
+        const cx = this.x + this.width / 2;
+        const cy = this._ly;
+        if (monitors.some(m => cx >= m.x && cx < m.x + m.width && cy >= m.y && cy < m.y + m.height))
+            return;
+
+        this._popout.hide();
+        this.remove_all_transitions();
+        this._morphAdj.remove_transition('value');
+        const m = primaryMonitor;
+        this.x = Math.max(m.x, Math.min(m.x + m.width - this.width, this.x));
+        this._ly = Math.max(m.y, Math.min(m.y + m.height - this.height, this._ly));
+        this._snapToEdge(0);
     }
 
     _snapToEdge(duration) {
