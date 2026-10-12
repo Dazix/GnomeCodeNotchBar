@@ -1,7 +1,8 @@
 {
   "name": "CodeNotchBar",
-  "description": "AI Agent status bar",
-  "uuid": "GnomeCodeNotchBar",
+  "description": "Shows the usage limits of your AI coding agents (Claude, GitHub Copilot, Codex, Cursor, Antigravity) in a small notch at the top of the screen",
+  "uuid": "codenotchbar@dazix.github.io",
+  "url": "https://github.com/Dazix/GnomeCodeNotchBar",
   "settings-schema": "org.gnome.shell.extensions.codenotchbar",
   "shell-version": [
     "50"

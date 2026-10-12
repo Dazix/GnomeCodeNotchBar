@@ -10,11 +10,16 @@ import {FloatingWidget} from './ui/floatingWidget.js';
 /** Settings keys that change what is on screen or how often it is polled. */
 const LIVE_KEYS = [
     'scale', 'background-opacity', 'background-color', 'popout-opacity',
-    'show-percent-label', 'ring-window', 'show-weekly-ring', 'warn-threshold', 'critical-threshold',
+    'show-percent-label', 'compact-mode', 'ring-window', 'show-weekly-ring', 'warn-threshold', 'critical-threshold',
     'poll-interval', 'provider-poll-intervals', 'snap-threshold', 'remember-position',
     'debug-mode', 'enabled-providers', 'provider-order',
 ];
 
+/**
+ * Lifecycle: nothing is created before enable(); the widgets, the usage store (its polling
+ * timers, file watchers and HTTP session) and the signal handlers made there are all undone
+ * in disable(). What the extension reads, runs and sends is listed in the README.
+ */
 export default class CodeNotchExtension extends Extension {
     enable() {
         this._settings = this.getSettings();

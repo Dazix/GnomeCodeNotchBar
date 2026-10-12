@@ -27,6 +27,10 @@
       <default>true</default>
       <summary>Show the percentage under each ring</summary>
     </key>
+    <key name="compact-mode" type="b">
+      <default>false</default>
+      <summary>Compact notch: small icon with the percentage, no rings</summary>
+    </key>
 
     <!-- Display -->
     <key name="ring-window" type="s">
