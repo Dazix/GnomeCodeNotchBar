@@ -39,6 +39,12 @@ export default class CodeNotchExtension extends Extension {
         this._restackedId = global.display.connect('restacked', () => this._raiseChrome());
         this._raiseChrome();
 
+        // A window that exactly fills a monitor (no top bar on a secondary one) gets scanned out
+        // directly, which skips the shell chrome drawn above it. Shell itself inhibits this during
+        // the overview and modal grabs, which is why alt+tab briefly brought the notch back.
+        global.compositor.disable_unredirect();
+        this._unredirectDisabled = true;
+
         this._store = new UsageStore(config);
         this._changedId = this._store.connect('changed',
             () => this._widget?.setStates(this._store.states));
@@ -66,6 +72,10 @@ export default class CodeNotchExtension extends Extension {
     }
 
     disable() {
+        if (this._unredirectDisabled) {
+            global.compositor.enable_unredirect();
+            this._unredirectDisabled = false;
+        }
         if (this._restackedId) {
             global.display.disconnect(this._restackedId);
             this._restackedId = null;
