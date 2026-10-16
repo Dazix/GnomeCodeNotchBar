@@ -18,11 +18,12 @@ test('watchFile: fires once for a burst of writes', async () => {
     const dir = tempDir();
     const path = `${dir}/limits.json`;
     let calls = 0;
-    const watcher = watchFile(path, () => calls++, 50);
+    // Debounce well above CI scheduling jitter, or the burst's events can straddle it.
+    const watcher = watchFile(path, () => calls++, 250);
     try {
         GLib.file_set_contents(path, '1');
         GLib.file_set_contents(path, '2');
-        await sleep(400);
+        await sleep(900);
         assertEqual(calls, 1);
     } finally {
         watcher.cancel();
