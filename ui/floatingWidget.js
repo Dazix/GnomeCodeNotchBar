@@ -235,6 +235,7 @@ class FloatingWidget extends St.Widget {
         }
 
         this._popout.hide();
+        this._displaced = null;
         const [x, y] = event.get_coords();
         this._dragStart = {x, y, actorX: this.x, actorY: this._ly};
         this.isDragging = true;
@@ -266,26 +267,52 @@ class FloatingWidget extends St.Widget {
         return monitors.find(m => cx >= m.x && cx < m.x + m.width && cy >= m.y && cy < m.y + m.height) ?? primaryMonitor;
     }
 
-    /** After a monitor was unplugged, pull a notch left outside every screen onto the primary one. */
+    _isOnAnyMonitor(cx, cy) {
+        return Main.layoutManager.monitors.some(
+            m => cx >= m.x && cx < m.x + m.width && cy >= m.y && cy < m.y + m.height);
+    }
+
+    /**
+     * After a monitor was unplugged, pull a notch left outside every screen onto the primary one;
+     * when that monitor comes back, put the notch where it was.
+     */
     _rescueFromMissingMonitor() {
-        const {monitors, primaryMonitor} = Main.layoutManager;
+        const {primaryMonitor} = Main.layoutManager;
         if (!primaryMonitor || this.isDragging)
             return;
+
+        if (this._displaced) {
+            const {cx, cy} = this._displaced;
+            if (this._isOnAnyMonitor(cx, cy)) {
+                const {x, ly} = this._displaced;
+                this._displaced = null;
+                this._popout.hide();
+                this.remove_all_transitions();
+                this._morphAdj.remove_transition('value');
+                this.x = x;
+                this._ly = ly;
+                this._snapToEdge(0);
+            }
+            return;
+        }
+
         const cx = this.x + this.width / 2;
         const cy = this._ly;
-        if (monitors.some(m => cx >= m.x && cx < m.x + m.width && cy >= m.y && cy < m.y + m.height))
+        if (this._isOnAnyMonitor(cx, cy))
             return;
 
+        this._displaced = {x: this.x, ly: this._ly, cx, cy};
         this._popout.hide();
         this.remove_all_transitions();
         this._morphAdj.remove_transition('value');
         const m = primaryMonitor;
         this.x = Math.max(m.x, Math.min(m.x + m.width - this.width, this.x));
         this._ly = Math.max(m.y, Math.min(m.y + m.height - this.height, this._ly));
-        this._snapToEdge(0);
+        // Keep the saved position: it is the one to come back to.
+        this._snapToEdge(0, false);
     }
 
-    _snapToEdge(duration) {
+    _snapToEdge(duration, save = true) {
         const monitor = this._monitorUnderWidget();
         const threshold = this._config.snapThreshold;
         let snapX = this.x;
@@ -324,6 +351,7 @@ class FloatingWidget extends St.Widget {
             this._bgArea.queue_repaint();
         }
         // Save the target: this.x / this.y are still mid-animation here.
-        this._savePosition(snapX, snapLy - padTarget);
+        if (save)
+            this._savePosition(snapX, snapLy - padTarget);
     }
 });
