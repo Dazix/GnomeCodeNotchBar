@@ -117,6 +117,53 @@ export function parseHookFile(payload) {
     };
 }
 
+/**
+ * Combine two readings of the same windows without ever going backwards: the
+ * file written by the mod only knows what Claude Code saw, the usage endpoint
+ * also counts other sessions, so either one can be the lower. Usage only grows
+ * inside a window and a later reset means a later window. Mirrors `isNewer`
+ * of the mod.
+ *
+ * @param {import('../model/types.js').LimitWindow[]} older
+ * @param {import('../model/types.js').LimitWindow[]} newer  wins when nothing else decides
+ * @param {number} now
+ * @returns {import('../model/types.js').LimitWindow[]}
+ */
+export function mergeWindows(older, newer, now) {
+    const merged = newer.map(next => {
+        const old = older.find(w => w.id === next.id);
+        if (!old)
+            return next;
+        const oldReset = old.resetsAt?.getTime();
+        if (oldReset === undefined || oldReset <= now)
+            return next;
+        const nextReset = next.resetsAt?.getTime();
+        if (nextReset === undefined)
+            return old;
+        if (nextReset !== oldReset)
+            return nextReset > oldReset ? next : old;
+        return next.usedFraction >= old.usedFraction ? next : old;
+    });
+    for (const old of older) {
+        if (!merged.some(w => w.id === old.id))
+            merged.push(old);
+    }
+    return merged.sort((a, b) => windowRank(a.id) - windowRank(b.id) || a.id.localeCompare(b.id));
+}
+
+function mergeSnapshots(a, b) {
+    if (!a || !b)
+        return a ?? b;
+    const [older, newer] = a.fetchedAt <= b.fetchedAt ? [a, b] : [b, a];
+    const windows = mergeWindows(older.windows, newer.windows, Date.now());
+    return {
+        ...newer,
+        windows,
+        headlineId: windows.some(w => w.id === 'session') ? 'session' : windows[0].id,
+        source: `${newer.source} + ${older.source}`,
+    };
+}
+
 export class ClaudeProvider extends Provider {
     constructor() {
         super({
@@ -127,6 +174,8 @@ export class ClaudeProvider extends Provider {
         });
         this._consecutiveRateLimits = 0;
         this._retryNoEarlierThan = 0;
+        /** Last reading from the usage endpoint, to merge with a fresh mod file. */
+        this._lastApi = null;
     }
 
     async isAvailable() {
@@ -135,22 +184,25 @@ export class ClaudeProvider extends Provider {
 
     /**
      * A reading from Claude Code itself is free of the usage endpoint's rate
-     * limit: prefer a fresh one, and fall back to a recent one when the
-     * endpoint fails.
+     * limit: skip the endpoint while it is fresh, and use it when the endpoint
+     * fails. The two sources disagree, so a reading never replaces a higher
+     * one of the same window; otherwise the ring would flip between them.
      */
     async fetchSnapshot(http) {
         const hook = await this._readHookFile();
         const age = hook ? Date.now() - hook.fetchedAt.getTime() : Infinity;
-        if (hook && age < HOOK_FRESH_MS)
-            return this._hookSnapshot(hook);
+        const usable = hook && age < HOOK_USABLE_MS ? await this._hookSnapshot(hook) : null;
+        if (usable && age < HOOK_FRESH_MS)
+            return mergeSnapshots(usable, this._lastApi);
 
         try {
-            return await this._fetchFromApi(http);
+            this._lastApi = await this._fetchFromApi(http);
         } catch (e) {
-            if (hook && age < HOOK_USABLE_MS)
-                return this._hookSnapshot(hook);
+            if (usable)
+                return mergeSnapshots(usable, this._lastApi);
             throw e;
         }
+        return mergeSnapshots(this._lastApi, usable);
     }
 
     watchedFiles() {
