@@ -35,15 +35,18 @@ export default class CodeNotchExtension extends Extension {
             () => this.openPreferences());
         Main.layoutManager.addChrome(this._widget, {trackFullscreen: false});
 
-        // Other chrome or a fullscreen window can end up above the notch: lift it back.
-        this._restackedId = global.display.connect('restacked', () => this._raiseChrome());
-        this._raiseChrome();
-
         // A window that exactly fills a monitor (no top bar on a secondary one) gets scanned out
         // directly, which skips the shell chrome drawn above it. Shell itself inhibits this during
         // the overview and modal grabs, which is why alt+tab briefly brought the notch back.
         global.compositor.disable_unredirect();
         this._unredirectDisabled = true;
+
+        // Other chrome or a fullscreen window can end up above the notch: lift it back.
+        this._restackedId = global.display.connect('restacked', () => {
+            this._raiseChrome();
+            this._reassertUnredirect();
+        });
+        this._raiseChrome();
 
         this._store = new UsageStore(config);
         this._changedId = this._store.connect('changed',
@@ -62,6 +65,17 @@ export default class CodeNotchExtension extends Extension {
             if (actor?.get_parent() === uiGroup && modalDialogGroup?.get_parent() === uiGroup)
                 uiGroup.set_child_below_sibling(actor, modalDialogGroup);
         }
+    }
+
+    _reassertUnredirect() {
+        // The inhibit is a single counter shared by everyone, and Shell sometimes releases one more
+        // time than it took (seen around unlocking the screen), which silently drops ours. Mutter
+        // offers no getter, so release and take it again in the same turn: while it is held this
+        // is a no-op, and once it was lost the release is ignored and the take restores it.
+        if (!this._unredirectDisabled)
+            return;
+        global.compositor.enable_unredirect();
+        global.compositor.disable_unredirect();
     }
 
     _applyConfig() {
