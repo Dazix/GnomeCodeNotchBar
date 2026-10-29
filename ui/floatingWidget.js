@@ -185,13 +185,39 @@ class FloatingWidget extends St.Widget {
         this.visible = this._items.size > 0;
     }
 
+    /** Default spot: a free pill near the top left of the primary monitor. */
+    _moveToDefault() {
+        const m = Main.layoutManager.primaryMonitor;
+        const x = (m?.x ?? 0) + DEFAULT_POSITION.x;
+        const y = (m?.y ?? 0) + DEFAULT_POSITION.y;
+        this.dockState = 'floating';
+        this.isDockedRight = false;
+        this._weights = {...DOCK_WEIGHTS.floating};
+        this.set_position(x, y);
+        this._ly = y + this._padFor(this._weights);
+    }
+
+    /** Move the notch back to its default position, wherever it is now (asked for in the preferences). */
+    resetPosition() {
+        if (this.isDragging) {
+            this.isDragging = false;
+            this._endGrab();
+        }
+        this._displaced = null;
+        this._popout.hide();
+        this.remove_all_transitions();
+        this._morphAdj.remove_transition('value');
+        this._moveToDefault();
+        this._syncPadding();
+        this._bgArea.queue_repaint();
+    }
+
     _restorePosition() {
         const monitor = Main.layoutManager.primaryMonitor;
         const x = this._settings.get_int('position-x');
         const y = this._settings.get_int('position-y');
         if (!this._config.rememberPosition || x < 0 || y < 0 || !monitor) {
-            this.set_position(DEFAULT_POSITION.x, DEFAULT_POSITION.y);
-            this._ly = DEFAULT_POSITION.y + this._padFor(this._weights);
+            this._moveToDefault();
             return;
         }
         const dock = this._settings.get_string('dock-state');

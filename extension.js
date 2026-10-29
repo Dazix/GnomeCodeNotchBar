@@ -54,6 +54,8 @@ export default class CodeNotchExtension extends Extension {
 
         this._settingsIds = LIVE_KEYS.map(key =>
             this._settings.connect(`changed::${key}`, () => this._applyConfig()));
+        this._settingsIds.push(this._settings.connect('changed::reset-position-request',
+            () => this._widget?.resetPosition()));
 
         this._store.start().catch(e => console.error(`CodeNotchBar: ${e.message}`));
     }
