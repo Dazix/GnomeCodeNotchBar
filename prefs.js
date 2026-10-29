@@ -41,6 +41,12 @@ function switchRow(settings, key, {title, subtitle = ''}) {
     return row;
 }
 
+// Prefs run in their own process: any change of this key tells the shell to move the notch back.
+function requestPositionReset(settings) {
+    const key = 'reset-position-request';
+    settings.set_uint(key, (settings.get_uint(key) + 1) % 0xffffffff);
+}
+
 export default class CodeNotchPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
@@ -177,6 +183,7 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
         resetPosition.connect('activated', () => {
             for (const key of ['position-x', 'position-y', 'dock-state'])
                 settings.reset(key);
+            requestPositionReset(settings);
         });
         reset.add(resetPosition);
 
@@ -184,6 +191,7 @@ export default class CodeNotchPreferences extends ExtensionPreferences {
         resetAll.connect('activated', () => {
             for (const key of ALL_KEYS)
                 settings.reset(key);
+            requestPositionReset(settings);
             window.close();
         });
         reset.add(resetAll);

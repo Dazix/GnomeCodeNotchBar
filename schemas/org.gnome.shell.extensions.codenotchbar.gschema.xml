@@ -96,6 +96,10 @@
       <default>'floating'</default>
       <summary>Saved docking state</summary>
     </key>
+    <key name="reset-position-request" type="u">
+      <default>0</default>
+      <summary>Bumped by the preferences to move the notch back to its default position</summary>
+    </key>
 
     <!-- Providers -->
     <key name="enabled-providers" type="as">

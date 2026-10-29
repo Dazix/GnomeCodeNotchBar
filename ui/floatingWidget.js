@@ -47,6 +47,8 @@ class FloatingWidget extends St.Widget {
         /** @type {Map<string, SidebarItem>} */
         this._items = new Map();
         this.isDragging = false;
+        /** @type {Clutter.Grab|null} pointer grab held while dragging */
+        this._grab = null;
         this.isDockedRight = false;
         this.dockState = 'floating';
 
@@ -103,6 +105,7 @@ class FloatingWidget extends St.Widget {
         this._monitorsChangedId = Main.layoutManager.connect('monitors-changed',
             () => this._rescueFromMissingMonitor());
         this.connect('destroy', () => {
+            this._endGrab();
             Main.layoutManager.disconnect(this._monitorsChangedId);
         });
         this._rescueFromMissingMonitor();
@@ -182,13 +185,39 @@ class FloatingWidget extends St.Widget {
         this.visible = this._items.size > 0;
     }
 
+    /** Default spot: a free pill near the top left of the primary monitor. */
+    _moveToDefault() {
+        const m = Main.layoutManager.primaryMonitor;
+        const x = (m?.x ?? 0) + DEFAULT_POSITION.x;
+        const y = (m?.y ?? 0) + DEFAULT_POSITION.y;
+        this.dockState = 'floating';
+        this.isDockedRight = false;
+        this._weights = {...DOCK_WEIGHTS.floating};
+        this.set_position(x, y);
+        this._ly = y + this._padFor(this._weights);
+    }
+
+    /** Move the notch back to its default position, wherever it is now (asked for in the preferences). */
+    resetPosition() {
+        if (this.isDragging) {
+            this.isDragging = false;
+            this._endGrab();
+        }
+        this._displaced = null;
+        this._popout.hide();
+        this.remove_all_transitions();
+        this._morphAdj.remove_transition('value');
+        this._moveToDefault();
+        this._syncPadding();
+        this._bgArea.queue_repaint();
+    }
+
     _restorePosition() {
         const monitor = Main.layoutManager.primaryMonitor;
         const x = this._settings.get_int('position-x');
         const y = this._settings.get_int('position-y');
         if (!this._config.rememberPosition || x < 0 || y < 0 || !monitor) {
-            this.set_position(DEFAULT_POSITION.x, DEFAULT_POSITION.y);
-            this._ly = DEFAULT_POSITION.y + this._padFor(this._weights);
+            this._moveToDefault();
             return;
         }
         const dock = this._settings.get_string('dock-state');
@@ -239,12 +268,20 @@ class FloatingWidget extends St.Widget {
         const [x, y] = event.get_coords();
         this._dragStart = {x, y, actorX: this.x, actorY: this._ly};
         this.isDragging = true;
+        // Undocking shrinks the box, so a press in a docked notch's transparent
+        // edge strip leaves the pointer outside it. Grab the pointer so the
+        // release still reaches us and the drag cannot get stuck.
+        this._grab = global.stage.grab(this);
         return Clutter.EVENT_STOP;
     }
 
     _onMotion(actor, event) {
         if (!this.isDragging)
             return Clutter.EVENT_PROPAGATE;
+        // The button is up but its release never reached us: end the drag here
+        // instead of letting the notch follow the pointer off the screen.
+        if (!(event.get_state() & Clutter.ModifierType.BUTTON1_MASK))
+            return this._onButtonRelease();
         const [x, y] = event.get_coords();
         this._ly = this._dragStart.actorY + y - this._dragStart.y;
         this.set_position(this._dragStart.actorX + x - this._dragStart.x, this._ly - this._padTop);
@@ -255,8 +292,14 @@ class FloatingWidget extends St.Widget {
         if (!this.isDragging)
             return Clutter.EVENT_PROPAGATE;
         this.isDragging = false;
+        this._endGrab();
         this._snapToEdge(SNAP_DURATION);
         return Clutter.EVENT_STOP;
+    }
+
+    _endGrab() {
+        this._grab?.dismiss();
+        this._grab = null;
     }
 
     /** Monitor under the notch's center, so it snaps to the screen it was dragged onto. */
