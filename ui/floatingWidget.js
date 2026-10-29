@@ -47,6 +47,8 @@ class FloatingWidget extends St.Widget {
         /** @type {Map<string, SidebarItem>} */
         this._items = new Map();
         this.isDragging = false;
+        /** @type {Clutter.Grab|null} pointer grab held while dragging */
+        this._grab = null;
         this.isDockedRight = false;
         this.dockState = 'floating';
 
@@ -103,6 +105,7 @@ class FloatingWidget extends St.Widget {
         this._monitorsChangedId = Main.layoutManager.connect('monitors-changed',
             () => this._rescueFromMissingMonitor());
         this.connect('destroy', () => {
+            this._endGrab();
             Main.layoutManager.disconnect(this._monitorsChangedId);
         });
         this._rescueFromMissingMonitor();
@@ -239,12 +242,20 @@ class FloatingWidget extends St.Widget {
         const [x, y] = event.get_coords();
         this._dragStart = {x, y, actorX: this.x, actorY: this._ly};
         this.isDragging = true;
+        // Undocking shrinks the box, so a press in a docked notch's transparent
+        // edge strip leaves the pointer outside it. Grab the pointer so the
+        // release still reaches us and the drag cannot get stuck.
+        this._grab = global.stage.grab(this);
         return Clutter.EVENT_STOP;
     }
 
     _onMotion(actor, event) {
         if (!this.isDragging)
             return Clutter.EVENT_PROPAGATE;
+        // The button is up but its release never reached us: end the drag here
+        // instead of letting the notch follow the pointer off the screen.
+        if (!(event.get_state() & Clutter.ModifierType.BUTTON1_MASK))
+            return this._onButtonRelease();
         const [x, y] = event.get_coords();
         this._ly = this._dragStart.actorY + y - this._dragStart.y;
         this.set_position(this._dragStart.actorX + x - this._dragStart.x, this._ly - this._padTop);
@@ -255,8 +266,14 @@ class FloatingWidget extends St.Widget {
         if (!this.isDragging)
             return Clutter.EVENT_PROPAGATE;
         this.isDragging = false;
+        this._endGrab();
         this._snapToEdge(SNAP_DURATION);
         return Clutter.EVENT_STOP;
+    }
+
+    _endGrab() {
+        this._grab?.dismiss();
+        this._grab = null;
     }
 
     /** Monitor under the notch's center, so it snaps to the screen it was dragged onto. */
