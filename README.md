@@ -80,6 +80,7 @@ gnome-extensions pack --force \
 ## Contributing / CI
 
 `main` is protected: changes go through a pull request and the GitHub Actions `test` job (GSettings schema validation and unit tests) must pass before merge.
+See [CONTRIBUTING.md](CONTRIBUTING.md); report security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## Icons
 
