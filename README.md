@@ -28,6 +28,24 @@ glib-compile-schemas schemas/
 gnome-extensions enable codenotchbar@dazix.github.io
 ```
 
+### Claude Code mod (optional)
+
+`claude-mod/` is a Claude Code mod (`notch-bar-usage`) that writes the rate-limit windows from Claude Code's own API
+responses to `~/.cache/code-notch-bar/claude-rate-limits.json`. With it, the Claude ring updates the moment a session
+gets a new reading; without it, the extension falls back to polling. Load it by adding its directory to
+`CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` (paths are separated by `:`):
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.local/share/gnome-shell/extensions/codenotchbar@dazix.github.io/claude-mod"
+  }
+}
+```
+
+Restart Claude Code afterwards. The mod only writes that one file; it keeps the newest reading of each window, so an
+older session never overwrites what a newer one wrote.
+
 On Wayland, log out and back in so the shell picks up a new extension. Settings: `gnome-extensions prefs codenotchbar@dazix.github.io`.
 
 ## Privacy: what it reads, runs and sends

@@ -1,0 +1,5 @@
+{
+  "name": "notch-bar-usage",
+  "version": "0.1.0",
+  "description": "Writes Claude Code's rate-limit windows to a JSON file for the GnomeCodeNotchBar extension."
+}
