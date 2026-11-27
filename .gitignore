@@ -3,3 +3,4 @@
 node_modules/
 schemas/gschemas.compiled
 *.zip
+claude-mod/.claude-plugin/types/
