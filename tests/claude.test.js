@@ -49,6 +49,16 @@ test('claude: merge keeps the higher usage of the same window', () => {
     assertEqual(apiHigh[0].usedFraction, 0.4);
 });
 
+test('claude: merge treats resets a moment apart as the same window', () => {
+    // The mod rounds the reset to the second, the endpoint keeps the fraction.
+    const api = win('session', 0.13, '2026-10-05T15:00:00.512Z');
+    const mod = win('session', 0.38, '2026-10-05T15:00:00Z');
+    assertEqual(mergeWindows([api], [mod], NOW)[0].usedFraction, 0.38);
+    assertEqual(mergeWindows([mod], [api], NOW)[0].usedFraction, 0.38);
+    const early = win('session', 0.13, '2026-10-05T14:59:59.6Z');
+    assertEqual(mergeWindows([mod], [early], NOW)[0].usedFraction, 0.38);
+});
+
 test('claude: merge lets a later window win even with lower usage', () => {
     const w = mergeWindows(
         [win('session', 0.9, '2026-10-05T13:00:00Z')],

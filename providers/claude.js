@@ -90,6 +90,8 @@ const HOOK_FILE = '~/.cache/code-notch-bar/claude-rate-limits.json';
 const HOOK_KINDS = {five_hour: 'session', seven_day: 'weekly_all'};
 const HOOK_FRESH_MS = 2 * 60 * 1000;
 const HOOK_USABLE_MS = 30 * 60 * 1000;
+/** Windows are hours long: resets closer than this belong to the same one. */
+const SAME_RESET_MS = 5 * 60 * 1000;
 
 /**
  * Turn the file written by the `notch-bar-usage` Claude Code mod (the rate
@@ -122,7 +124,10 @@ export function parseHookFile(payload) {
  * file written by the mod only knows what Claude Code saw, the usage endpoint
  * also counts other sessions, so either one can be the lower. Usage only grows
  * inside a window and a later reset means a later window. Mirrors `isNewer`
- * of the mod.
+ * of the mod, except that resets a moment apart are one window: the mod rounds
+ * the reset to the second and the endpoint does not, so an old endpoint
+ * reading would otherwise look like a later window and win for as long as the
+ * mod's file stays fresh (the endpoint is not asked again meanwhile).
  *
  * @param {import('../model/types.js').LimitWindow[]} older
  * @param {import('../model/types.js').LimitWindow[]} newer  wins when nothing else decides
@@ -140,7 +145,7 @@ export function mergeWindows(older, newer, now) {
         const nextReset = next.resetsAt?.getTime();
         if (nextReset === undefined)
             return old;
-        if (nextReset !== oldReset)
+        if (Math.abs(nextReset - oldReset) > SAME_RESET_MS)
             return nextReset > oldReset ? next : old;
         return next.usedFraction >= old.usedFraction ? next : old;
     });
